@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "editable",
+    "passed": true,
+    "mean_mad": 0.0724,
+    "source_pages": null,
+    "rendered_pages": null,
+    "top_keys": [
+      "schema_version",
+      "mode",
+      "passed",
+      "structure",
+      "text",
+      "table",
+      "image",
+      "visual",
+      "issues"
+    ]
+  },
+  {
+    "mode": "positioned",
+    "passed": true,
+    "mean_mad": 0.0492,
+    "source_pages": null,
+    "rendered_pages": null,
+    "top_keys": [
+      "schema_version",
+      "mode",
+      "passed",
+      "structure",
+      "text",
+      "table",
+      "image",
+      "visual",
+      "issues"
+    ]
+  },
+  {
+    "mode": "hybrid",
+    "passed": true,
+    "mean_mad": 0.0198,
+    "source_pages": null,
+    "rendered_pages": null,
+    "top_keys": [
+      "schema_version",
+      "mode",
+      "passed",
+      "structure",
+      "text",
+      "table",
+      "image",
+      "visual",
+      "issues"
+    ]
+  },
+  {
+    "mode": "fidelity",
+    "passed": true,
+    "mean_mad": 0.0194,
+    "source_pages": null,
+    "rendered_pages": null,
+    "top_keys": [
+      "schema_version",
+      "mode",
+      "passed",
+      "structure",
+      "text",
+      "table",
+      "image",
+      "visual",
+      "issues"
+    ]
+  }
+]

@@ -1,0 +1,8 @@
+DOCX: workspace/jobs/release-v1/fidelity/result.docx
+IR: workspace/jobs/20260720_075607_308a8bf8/ir/original.json
+PREFLIGHT: workspace/jobs/20260720_075607_308a8bf8/validation/preflight.json
+VALIDATION: workspace/jobs/20260720_075607_308a8bf8/validation/validation_report.json
+VALIDATION_PASSED: True
+VALIDATION_LAYERS: structure=pass text=skipped table=skipped image=pass visual=pass
+VISUAL_PAGES: source=11 rendered=11 delta=0 mean_mad=0.0194
+JOB: workspace/jobs/20260720_075607_308a8bf8

@@ -1,0 +1,37 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.eggs/
+*.egg
+
+# Tooling / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Runtime job output (large); keep curated archives under workspace/archive/
+workspace/jobs/
+
+# Optional full upstream clones (clone per third_party/README.md)
+third_party/docling/
+third_party/MinerU/
+third_party/PaddleOCR/
+third_party/**/__pycache__/
+
+# Local model / cache blobs if present
+**/.cache/
+**/models/
+*.pdfium

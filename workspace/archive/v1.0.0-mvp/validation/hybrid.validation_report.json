@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0",
+  "mode": "hybrid",
+  "passed": true,
+  "structure": {
+    "status": "pass",
+    "issue_count": 0,
+    "metrics": {
+      "ir_pages": 11,
+      "ir_headings": 8,
+      "ir_paragraphs": 213,
+      "ir_tables": 1,
+      "ir_images": 3,
+      "ir_headers": 0,
+      "ir_footers": 11,
+      "docx_paragraphs": 21,
+      "docx_headings": 0,
+      "docx_tables": 1,
+      "docx_images": 14,
+      "docx_sections": 11,
+      "empty_text_elements": 0,
+      "reading_order_issues": 0,
+      "missing_image_assets": 0,
+      "element_type_counts": {
+        "separator": 15,
+        "heading": 8,
+        "paragraph": 213,
+        "footer": 11,
+        "image": 3,
+        "formula": 14,
+        "table": 1
+      }
+    },
+    "reason": null
+  },
+  "text": {
+    "status": "skipped",
+    "issue_count": 0,
+    "metrics": {
+      "reason": "hybrid_layout_mode"
+    },
+    "reason": "hybrid layout keeps text in native positioned drawing objects"
+  },
+  "table": {
+    "status": "skipped",
+    "issue_count": 0,
+    "metrics": {
+      "reason": "hybrid_layout_mode"
+    },
+    "reason": "hybrid layout keeps tables inside positioned drawing objects"
+  },
+  "image": {
+    "status": "pass",
+    "issue_count": 0,
+    "metrics": {
+      "ir_image_count": 3,
+      "docx_image_count": 14
+    },
+    "reason": null
+  },
+  "visual": {
+    "status": "pass",
+    "issue_count": 0,
+    "metrics": {
+      "enabled": true,
+      "page_count": 11,
+      "expect_page_count_match": true,
+      "page_count_tolerance": 0,
+      "soffice": "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+      "source": "NIPS-2017-attention-is-all-you-need-Paper.pdf",
+      "source_page_count": 11,
+      "rendered_page_count": 11,
+      "page_count_delta": 0,
+      "mad_pairing": "aligned",
+      "pages": [
+        {
+          "page": 1,
+          "mean_absolute_difference": 0.0178
+        },
+        {
+          "page": 2,
+          "mean_absolute_difference": 0.0253
+        },
+        {
+          "page": 3,
+          "mean_absolute_difference": 0.016
+        },
+        {
+          "page": 4,
+          "mean_absolute_difference": 0.0165
+        },
+        {
+          "page": 5,
+          "mean_absolute_difference": 0.0164
+        },
+        {
+          "page": 6,
+          "mean_absolute_difference": 0.0218
+        },
+        {
+          "page": 7,
+          "mean_absolute_difference": 0.0208
+        },
+        {
+          "page": 8,
+          "mean_absolute_difference": 0.0213
+        },
+        {
+          "page": 9,
+          "mean_absolute_difference": 0.0251
+        },
+        {
+          "page": 10,
+          "mean_absolute_difference": 0.0198
+        },
+        {
+          "page": 11,
+          "mean_absolute_difference": 0.0169
+        }
+      ],
+      "mean_mad": 0.0198
+    },
+    "reason": null
+  },
+  "issues": []
+}

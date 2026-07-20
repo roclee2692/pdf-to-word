@@ -1,0 +1,310 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Callable
+
+from pdf2word.cli import parse_page_selection
+from pdf2word.pdf_backends import PdfPlumberBackend
+from pdf2word.routing import ParserRouter, PreflightAnalyzer
+from pdf2word.services import ConversionOptions, ConversionService
+
+
+def _resolve_pages(pdf_path: Path, selection: str) -> list[int]:
+    if selection.strip():
+        return parse_page_selection(selection)
+    with PdfPlumberBackend(pdf_path) as backend:
+        return list(range(1, backend.page_count() + 1))
+
+
+def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
+    """Launch the optional PySide6 desktop shell around the CLI service."""
+    try:
+        from PySide6.QtCore import QThread, QUrl, Signal
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtWidgets import (
+            QApplication,
+            QFileDialog,
+            QFormLayout,
+            QGridLayout,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QMainWindow,
+            QMessageBox,
+            QPlainTextEdit,
+            QProgressBar,
+            QPushButton,
+            QComboBox,
+            QVBoxLayout,
+            QWidget,
+        )
+    except ImportError as exc:
+        raise RuntimeError(
+            "PySide6 is optional. Install the GUI extra with `python -m pip install -e '.[gui]'`."
+        ) from exc
+
+    class PdfDropLineEdit(QLineEdit):
+        file_dropped = Signal(str)
+
+        def __init__(self):
+            super().__init__()
+            self.setAcceptDrops(True)
+
+        def dragEnterEvent(self, event) -> None:
+            urls = event.mimeData().urls()
+            if any(url.isLocalFile() and url.toLocalFile().lower().endswith(".pdf") for url in urls):
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+
+        def dropEvent(self, event) -> None:
+            for url in event.mimeData().urls():
+                if url.isLocalFile() and url.toLocalFile().lower().endswith(".pdf"):
+                    self.file_dropped.emit(url.toLocalFile())
+                    event.acceptProposedAction()
+                    return
+            event.ignore()
+
+    class PreflightWorker(QThread):
+        completed = Signal(object)
+        failed = Signal(str)
+
+        def __init__(self, pdf_path: Path, pages: list[int]):
+            super().__init__()
+            self.pdf_path = pdf_path
+            self.pages = pages
+
+        def run(self) -> None:
+            try:
+                with PdfPlumberBackend(self.pdf_path) as backend:
+                    findings = PreflightAnalyzer().analyze_pages(backend, self.pages)
+                    router = ParserRouter()
+                    payload = {
+                        "pages": [
+                            {
+                                **finding.__dict__,
+                                "preferred_parser": router.choose_parser(finding),
+                                "selected_parser": router.choose_available_parser(finding),
+                            }
+                            for finding in findings
+                        ],
+                        "available_parsers": router.availability_report(),
+                    }
+                self.completed.emit(payload)
+            except Exception as exc:  # pragma: no cover - exercised by the GUI runtime
+                self.failed.emit(f"{type(exc).__name__}: {exc}")
+
+    class ConvertWorker(QThread):
+        completed = Signal(object)
+        failed = Signal(str)
+
+        def __init__(self, pdf_path: Path, pages: list[int], output: Path, mode: str):
+            super().__init__()
+            self.pdf_path = pdf_path
+            self.pages = pages
+            self.output = output
+            self.mode = mode
+
+        def run(self) -> None:
+            try:
+                result = ConversionService().convert(
+                    self.pdf_path,
+                    self.output,
+                    ConversionOptions(
+                        pages=self.pages,
+                        mode=self.mode,
+                        dump_ir=True,
+                        workspace_root=Path("workspace"),
+                        validate=True,
+                        visual_validate=True,
+                    ),
+                )
+                self.completed.emit(result)
+            except Exception as exc:  # pragma: no cover - exercised by the GUI runtime
+                self.failed.emit(f"{type(exc).__name__}: {exc}")
+
+    class MainWindow(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("PDF to Word")
+            self.resize(980, 680)
+            self._worker = None
+            self._last_output: Path | None = None
+
+            source_edit = PdfDropLineEdit()
+            source_edit.setPlaceholderText("Select a PDF file")
+            source_edit.file_dropped.connect(self._set_source_path)
+            source_button = QPushButton("Browse")
+            source_button.clicked.connect(self._choose_source)
+            source_row = QHBoxLayout()
+            source_row.addWidget(source_edit, 1)
+            source_row.addWidget(source_button)
+
+            pages_edit = QLineEdit("1")
+            pages_edit.setPlaceholderText("Blank = all pages; example: 1,3-5")
+            mode_combo = QComboBox()
+            mode_combo.addItems(["editable", "positioned", "hybrid", "fidelity"])
+
+            output_edit = QLineEdit()
+            output_edit.setPlaceholderText("Optional DOCX path")
+            output_button = QPushButton("Browse")
+            output_button.clicked.connect(self._choose_output)
+            output_row = QHBoxLayout()
+            output_row.addWidget(output_edit, 1)
+            output_row.addWidget(output_button)
+
+            form = QFormLayout()
+            form.addRow("PDF", source_row)
+            form.addRow("Pages", pages_edit)
+            form.addRow("Mode", mode_combo)
+            form.addRow("DOCX", output_row)
+
+            preflight_button = QPushButton("Preflight")
+            convert_button = QPushButton("Convert")
+            open_button = QPushButton("Open output")
+            open_button.setEnabled(False)
+            preflight_button.clicked.connect(self._run_preflight)
+            convert_button.clicked.connect(self._run_convert)
+            open_button.clicked.connect(self._open_output)
+            button_row = QHBoxLayout()
+            button_row.addWidget(preflight_button)
+            button_row.addWidget(convert_button)
+            button_row.addStretch(1)
+            button_row.addWidget(open_button)
+
+            progress = QProgressBar()
+            progress.setRange(0, 1)
+            progress.setValue(0)
+            status = QLabel("Ready")
+            log = QPlainTextEdit()
+            log.setReadOnly(True)
+
+            central = QWidget()
+            layout = QVBoxLayout(central)
+            layout.addLayout(form)
+            layout.addLayout(button_row)
+            layout.addWidget(progress)
+            layout.addWidget(status)
+            layout.addWidget(log, 1)
+            self.setCentralWidget(central)
+
+            self._source_edit = source_edit
+            self._pages_edit = pages_edit
+            self._mode_combo = mode_combo
+            self._output_edit = output_edit
+            self._preflight_button = preflight_button
+            self._convert_button = convert_button
+            self._open_button = open_button
+            self._progress = progress
+            self._status = status
+            self._log = log
+
+        def _choose_source(self) -> None:
+            path, _ = QFileDialog.getOpenFileName(self, "Select PDF", "", "PDF files (*.pdf)")
+            if path:
+                self._set_source_path(path)
+
+        def _set_source_path(self, path: str) -> None:
+            self._source_edit.setText(path)
+            if not self._output_edit.text().strip():
+                self._output_edit.setText(str(Path(path).with_suffix(".docx")))
+
+        def _choose_output(self) -> None:
+            path, _ = QFileDialog.getSaveFileName(self, "Save DOCX", "", "Word files (*.docx)")
+            if path:
+                self._output_edit.setText(path)
+
+        def _inputs(self) -> tuple[Path, list[int], Path, str] | None:
+            pdf_path = Path(self._source_edit.text().strip()).expanduser()
+            if not pdf_path.is_file():
+                QMessageBox.warning(self, "Missing input", "Select an existing PDF file first.")
+                return None
+            try:
+                pages = _resolve_pages(pdf_path, self._pages_edit.text())
+            except Exception as exc:
+                QMessageBox.warning(self, "Invalid pages", str(exc))
+                return None
+            output_text = self._output_edit.text().strip()
+            output = Path(output_text).expanduser() if output_text else pdf_path.with_suffix(".docx")
+            return pdf_path, pages, output, self._mode_combo.currentText()
+
+        def _set_busy(self, busy: bool, message: str) -> None:
+            self._preflight_button.setEnabled(not busy)
+            self._convert_button.setEnabled(not busy)
+            self._progress.setRange(0, 0 if busy else 1)
+            if not busy:
+                self._progress.setValue(0)
+            self._status.setText(message)
+
+        def _run_preflight(self) -> None:
+            inputs = self._inputs()
+            if inputs is None:
+                return
+            pdf_path, pages, _, _ = inputs
+            self._set_busy(True, "Running preflight...")
+            self._log.appendPlainText(f"PREFLIGHT {pdf_path} pages={pages}")
+            self._worker = PreflightWorker(pdf_path, pages)
+            self._worker.completed.connect(self._preflight_done)
+            self._worker.failed.connect(self._worker_failed)
+            self._worker.finished.connect(self._worker.deleteLater)
+            self._worker.start()
+
+        def _preflight_done(self, payload: object) -> None:
+            self._set_busy(False, "Preflight complete")
+            data = payload if isinstance(payload, dict) else {}
+            self._log.appendPlainText(json.dumps(data, ensure_ascii=False, indent=2))
+
+        def _run_convert(self) -> None:
+            inputs = self._inputs()
+            if inputs is None:
+                return
+            pdf_path, pages, output, mode = inputs
+            self._set_busy(True, "Converting...")
+            self._log.appendPlainText(f"CONVERT mode={mode} output={output}")
+            self._worker = ConvertWorker(pdf_path, pages, output, mode)
+            self._worker.completed.connect(self._convert_done)
+            self._worker.failed.connect(self._worker_failed)
+            self._worker.finished.connect(self._worker.deleteLater)
+            self._worker.start()
+
+        def _convert_done(self, result: object) -> None:
+            self._set_busy(False, "Conversion complete")
+            self._last_output = getattr(result, "output_path", None)
+            self._open_button.setEnabled(bool(self._last_output))
+            report = getattr(result, "validation_report", None)
+            visual = getattr(report, "visual", None)
+            visual_metrics = getattr(visual, "metrics", None) or {}
+            text = getattr(report, "text", None)
+            text_metrics = getattr(text, "metrics", None) or {}
+            summary = {
+                "docx": str(getattr(result, "output_path", "")),
+                "preflight": str(getattr(result, "preflight_path", "")),
+                "validation": str(getattr(result, "validation_path", "")),
+                "passed": getattr(report, "passed", None),
+                "source_pages": visual_metrics.get("source_page_count"),
+                "rendered_pages": visual_metrics.get("rendered_page_count"),
+                "mean_mad": visual_metrics.get("mean_mad"),
+                "cer": text_metrics.get("character_error_rate"),
+            }
+            self._log.appendPlainText(json.dumps(summary, ensure_ascii=False, indent=2))
+
+        def _worker_failed(self, message: str) -> None:
+            self._set_busy(False, "Failed")
+            self._log.appendPlainText(message)
+            QMessageBox.critical(self, "PDF to Word failed", message)
+
+        def _open_output(self) -> None:
+            if self._last_output:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_output)))
+
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    window.show()
+    if on_ready is not None:
+        on_ready(window)
+    return app.exec()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(launch_gui())

@@ -1,0 +1,8 @@
+DOCX: workspace/jobs/release-v1/editable/result.docx
+IR: workspace/jobs/20260720_075549_16a41ac9/ir/original.json
+PREFLIGHT: workspace/jobs/20260720_075549_16a41ac9/validation/preflight.json
+VALIDATION: workspace/jobs/20260720_075549_16a41ac9/validation/validation_report.json
+VALIDATION_PASSED: True
+VALIDATION_LAYERS: structure=pass text=pass table=pass image=pass visual=warn
+VISUAL_PAGES: source=11 rendered=11 delta=0 mean_mad=0.0724
+JOB: workspace/jobs/20260720_075549_16a41ac9

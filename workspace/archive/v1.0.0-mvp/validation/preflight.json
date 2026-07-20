@@ -1,0 +1,305 @@
+{
+  "available_parsers": {
+    "native": true,
+    "docling": false,
+    "mineru": false,
+    "paddleocr": false
+  },
+  "open_source_resources": {
+    "docling": {
+      "repository": "third_party/docling",
+      "cloned": true,
+      "full_clone": true,
+      "commit": "43f56c40191da8ddea14236b7c07e271cf359829",
+      "shallow": false,
+      "import_module": "docling.document_converter",
+      "import_symbol": "DocumentConverter",
+      "runtime_importable": false,
+      "callable": false,
+      "enabled": false,
+      "model_artifacts_cached": false,
+      "runtime_error": "ModuleNotFoundError: No module named 'docling_core'"
+    },
+    "mineru": {
+      "repository": "third_party/MinerU",
+      "cloned": true,
+      "full_clone": true,
+      "commit": "79d6d8d79fb8f3ddba5cc34c07a16f0ec36f56c7",
+      "shallow": false,
+      "import_module": "mineru.cli.common",
+      "import_symbol": "do_parse",
+      "runtime_importable": false,
+      "callable": false,
+      "enabled": false,
+      "model_artifacts_cached": null,
+      "runtime_error": "ModuleNotFoundError: No module named 'loguru'"
+    },
+    "paddleocr": {
+      "repository": "third_party/PaddleOCR",
+      "cloned": true,
+      "full_clone": true,
+      "commit": "211989f046cc1878460f9e65574690c00a127a1a",
+      "shallow": false,
+      "import_module": "paddleocr",
+      "import_symbol": "PPStructureV3",
+      "runtime_importable": false,
+      "callable": false,
+      "enabled": false,
+      "model_artifacts_cached": null,
+      "runtime_error": "ModuleNotFoundError: No module named 'paddlex'"
+    }
+  },
+  "execution": {
+    "parser": "native",
+    "fallback": false
+  },
+  "pages": [
+    {
+      "page_no": 1,
+      "has_text_layer": true,
+      "word_count": 413,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 2,
+      "rect_count": 1,
+      "formula_like_count": 0,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 13,
+      "page_number_like": false,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 2,
+      "has_text_layer": true,
+      "word_count": 646,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 0,
+      "rect_count": 0,
+      "formula_like_count": 2,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 3,
+      "has_text_layer": true,
+      "word_count": 295,
+      "layout_complexity": "medium",
+      "image_coverage": 0.14559486631016044,
+      "table_count": 0,
+      "line_count": 0,
+      "rect_count": 0,
+      "formula_like_count": 2,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 4,
+      "has_text_layer": true,
+      "word_count": 420,
+      "layout_complexity": "medium",
+      "image_coverage": 0.06262459893048129,
+      "table_count": 0,
+      "line_count": 8,
+      "rect_count": 0,
+      "formula_like_count": 7,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "formula-like",
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 5,
+      "has_text_layer": true,
+      "word_count": 584,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 1,
+      "rect_count": 0,
+      "formula_like_count": 10,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "formula-like",
+        "footer"
+      ],
+      "preferred_parser": "docling",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 6,
+      "has_text_layer": true,
+      "word_count": 631,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 3,
+      "rect_count": 0,
+      "formula_like_count": 2,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 7,
+      "has_text_layer": true,
+      "word_count": 569,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 0,
+      "rect_count": 0,
+      "formula_like_count": 9,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "formula-like",
+        "footer"
+      ],
+      "preferred_parser": "docling",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 8,
+      "has_text_layer": true,
+      "word_count": 622,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 8,
+      "rect_count": 0,
+      "formula_like_count": 4,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "formula-like",
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 9,
+      "has_text_layer": true,
+      "word_count": 438,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 1,
+      "line_count": 53,
+      "rect_count": 0,
+      "formula_like_count": 0,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "table-or-rules",
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 10,
+      "has_text_layer": true,
+      "word_count": 430,
+      "layout_complexity": "medium",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 0,
+      "rect_count": 0,
+      "formula_like_count": 0,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    },
+    {
+      "page_no": 11,
+      "has_text_layer": true,
+      "word_count": 328,
+      "layout_complexity": "low",
+      "image_coverage": 0.0,
+      "table_count": 0,
+      "line_count": 0,
+      "rect_count": 0,
+      "formula_like_count": 0,
+      "column_count": 1,
+      "has_header": false,
+      "has_footer": true,
+      "header_word_count": 0,
+      "footer_word_count": 1,
+      "page_number_like": true,
+      "signals": [
+        "footer"
+      ],
+      "preferred_parser": "native",
+      "selected_parser": "native"
+    }
+  ]
+}
