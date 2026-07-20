@@ -2,9 +2,9 @@
   {
     "mode": "editable",
     "passed": true,
-    "mean_mad": 0.0724,
-    "source_pages": null,
-    "rendered_pages": null,
+    "mean_mad": 0.0726,
+    "source_pages": 11,
+    "rendered_pages": 11,
     "top_keys": [
       "schema_version",
       "mode",
@@ -20,9 +20,9 @@
   {
     "mode": "positioned",
     "passed": true,
-    "mean_mad": 0.0492,
-    "source_pages": null,
-    "rendered_pages": null,
+    "mean_mad": 0.0493,
+    "source_pages": 11,
+    "rendered_pages": 11,
     "top_keys": [
       "schema_version",
       "mode",
@@ -39,8 +39,8 @@
     "mode": "hybrid",
     "passed": true,
     "mean_mad": 0.0198,
-    "source_pages": null,
-    "rendered_pages": null,
+    "source_pages": 11,
+    "rendered_pages": 11,
     "top_keys": [
       "schema_version",
       "mode",
@@ -57,8 +57,8 @@
     "mode": "fidelity",
     "passed": true,
     "mean_mad": 0.0194,
-    "source_pages": null,
-    "rendered_pages": null,
+    "source_pages": 11,
+    "rendered_pages": 11,
     "top_keys": [
       "schema_version",
       "mode",

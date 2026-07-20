@@ -67,6 +67,7 @@ export PDF2WORD_SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
+# Expected: Ran 42 tests ... OK (skipped=1)
 ```
 
 ---
@@ -95,9 +96,9 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 | --- | --- |
 | 页数 | **11 → 11**（四种模式） |
 | 文本 CER（`editable`） | **0.0** |
-| `positioned` mean MAD | **≈ 0.049**（≤ 0.055） |
+| `positioned` mean MAD | **0.0493**（≤ 0.055） |
 | `hybrid` / `fidelity` mean MAD | **0.0198 / 0.0194**（像素工具） |
-| 单测 | 见 `unittest` 当前结果 |
+| 单测 | **42 OK**（1 skipped；GUI smoke 单独执行） |
 
 ---
 

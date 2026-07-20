@@ -21,12 +21,12 @@ The first implementation deliberately avoids Agent repair.
 
 | Mode | Pages | mean MAD | Notes |
 | --- | ---: | ---: | --- |
-| `editable` | 11 → 11 | 0.0724 | CER 0.0; visual warn on residual pages |
-| `positioned` | 11 → 11 | 0.0492 | ≤ 0.055 gate |
+| `editable` | 11 → 11 | 0.0726 | CER 0.0; visual warn on residual pages |
+| `positioned` | 11 → 11 | 0.0493 | ≤ 0.055 gate |
 | `hybrid` | 11 → 11 | 0.0198 | snapshot behind + vanish layer |
 | `fidelity` | 11 → 11 | 0.0194 | snapshot proof |
 
-Unit tests: **38 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
+Unit tests: **42 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
 
 ## Next Engineering Steps
 

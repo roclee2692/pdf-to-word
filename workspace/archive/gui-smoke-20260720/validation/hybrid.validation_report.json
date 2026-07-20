@@ -34,12 +34,15 @@
     "reason": null
   },
   "text": {
-    "status": "skipped",
+    "status": "pass",
     "issue_count": 0,
     "metrics": {
-      "reason": "hybrid_layout_mode"
+      "mode": "hybrid",
+      "ir_char_count": 33029,
+      "docx_xml_char_count": 32405,
+      "coverage": 0.9811075115807321
     },
-    "reason": "hybrid layout keeps text in native positioned drawing objects"
+    "reason": null
   },
   "table": {
     "status": "skipped",

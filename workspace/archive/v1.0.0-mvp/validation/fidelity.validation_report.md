@@ -2,6 +2,7 @@
 
 - mode: `fidelity`
 - passed: **True**
+- strict: **False**
 - issues: 0
 
 | Layer | Status | Issues |

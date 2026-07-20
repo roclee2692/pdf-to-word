@@ -38,8 +38,9 @@ export PYTHONPATH=src
 } >>"$LOG_FILE"
 
 # Keep Qt free of a stdout pipe; append stderr to the log for crash diagnosis.
-if ! .venv/bin/python -m pdf2word gui 2>>"$LOG_FILE"; then
-  status=$?
+.venv/bin/python -m pdf2word gui 2>>"$LOG_FILE"
+status=$?
+if [ "$status" -ne 0 ]; then
   log "ERROR: GUI exited with status $status (see $LOG_FILE)"
   if command -v osascript >/dev/null 2>&1; then
     osascript -e "display dialog \"PDF-to-Word 启动失败，详见 logs/start.log\" buttons {\"OK\"} default button 1 with icon stop with title \"PDF-to-Word\"" >/dev/null 2>&1 || true

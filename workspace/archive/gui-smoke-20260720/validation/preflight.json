@@ -51,8 +51,13 @@
   },
   "execution": {
     "parser": "native",
-    "fallback": false
+    "fallback": true,
+    "fallback_reason": "page 5: preferred 'docling' unavailable; using 'native' (quality may be limited)"
   },
+  "warnings": [
+    "page 5: preferred 'docling' unavailable; using 'native' (quality may be limited)",
+    "page 7: preferred 'docling' unavailable; using 'native' (quality may be limited)"
+  ],
   "pages": [
     {
       "page_no": 1,
@@ -74,7 +79,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 2,
@@ -96,7 +102,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 3,
@@ -118,7 +125,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 4,
@@ -141,7 +149,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 5,
@@ -164,7 +173,9 @@
         "footer"
       ],
       "preferred_parser": "docling",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": true,
+      "degraded_reason": "page 5: preferred 'docling' unavailable; using 'native' (quality may be limited)"
     },
     {
       "page_no": 6,
@@ -186,7 +197,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 7,
@@ -209,7 +221,9 @@
         "footer"
       ],
       "preferred_parser": "docling",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": true,
+      "degraded_reason": "page 7: preferred 'docling' unavailable; using 'native' (quality may be limited)"
     },
     {
       "page_no": 8,
@@ -232,7 +246,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 9,
@@ -255,7 +270,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 10,
@@ -277,7 +293,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     },
     {
       "page_no": 11,
@@ -299,7 +316,8 @@
         "footer"
       ],
       "preferred_parser": "native",
-      "selected_parser": "native"
+      "selected_parser": "native",
+      "degraded": false
     }
   ]
 }

@@ -2,6 +2,7 @@
 
 - mode: `editable`
 - passed: **True**
+- strict: **False**
 - issues: 2
 
 | Layer | Status | Issues |

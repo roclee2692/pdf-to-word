@@ -8,8 +8,8 @@ Environment: project `.venv`, LibreOffice via `PDF2WORD_SOFFICE`, macOS
 
 | Mode | Pages | mean MAD | VALIDATION_PASSED |
 | --- | ---: | ---: | --- |
-| editable | 11 → 11 | 0.0724 | true (visual warn; CER 0.0) |
-| positioned | 11 → 11 | 0.0492 | true |
+| editable | 11 → 11 | 0.0726 | true (visual warn; CER 0.0) |
+| positioned | 11 → 11 | 0.0493 | true |
 | hybrid | 11 → 11 | 0.0198 | true |
 | fidelity | 11 → 11 | 0.0194 | true |
 

@@ -34,12 +34,15 @@
     "reason": null
   },
   "text": {
-    "status": "skipped",
+    "status": "pass",
     "issue_count": 0,
     "metrics": {
-      "reason": "positioned_layout_mode"
+      "mode": "positioned",
+      "ir_char_count": 33029,
+      "docx_xml_char_count": 32405,
+      "coverage": 0.9811075115807321
     },
-    "reason": "positioned layout keeps text in native positioned drawing objects"
+    "reason": null
   },
   "table": {
     "status": "skipped",
@@ -66,8 +69,8 @@
       "page_count": 11,
       "expect_page_count_match": true,
       "page_count_tolerance": 0,
-      "soffice": "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-      "source": "NIPS-2017-attention-is-all-you-need-Paper.pdf",
+      "soffice": "/Users/raelon/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/soffice",
+      "source": "/Users/raelon/Documents/Projects/PDF-to-Word/NIPS-2017-attention-is-all-you-need-Paper.pdf",
       "source_page_count": 11,
       "rendered_page_count": 11,
       "page_count_delta": 0,
@@ -75,11 +78,11 @@
       "pages": [
         {
           "page": 1,
-          "mean_absolute_difference": 0.0468
+          "mean_absolute_difference": 0.0467
         },
         {
           "page": 2,
-          "mean_absolute_difference": 0.0651
+          "mean_absolute_difference": 0.0653
         },
         {
           "page": 3,
@@ -87,7 +90,7 @@
         },
         {
           "page": 4,
-          "mean_absolute_difference": 0.0399
+          "mean_absolute_difference": 0.0402
         },
         {
           "page": 5,
@@ -103,7 +106,7 @@
         },
         {
           "page": 8,
-          "mean_absolute_difference": 0.0593
+          "mean_absolute_difference": 0.0594
         },
         {
           "page": 9,
@@ -111,14 +114,14 @@
         },
         {
           "page": 10,
-          "mean_absolute_difference": 0.0492
+          "mean_absolute_difference": 0.0496
         },
         {
           "page": 11,
-          "mean_absolute_difference": 0.0378
+          "mean_absolute_difference": 0.0381
         }
       ],
-      "mean_mad": 0.0492
+      "mean_mad": 0.0493
     },
     "reason": null
   },

@@ -38,8 +38,8 @@
 
 | 方案 | 模式 | 含义 | 基线 mean MAD | 页数 | 推荐场景 |
 | --- | --- | --- | ---: | ---: | --- |
-| **可编辑** | `editable` | 流式段落、真表格、软分页 | **0.0724** | 11→11 | 复制改写、长文重排 |
-| **可编辑 + 定位** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0492** | 11→11 | 原生对象 + 像素门禁 ≤0.055 |
+| **可编辑** | `editable` | 流式段落、真表格、软分页 | **0.0726** | 11→11 | 复制改写、长文重排 |
+| **可编辑 + 定位** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0493** | 11→11 | 原生对象 + 像素门禁 ≤0.055 |
 | **高保真** | `hybrid` | 页图 behindDoc + 可编辑层（vanish） | **0.0198** | 11→11 | 像素优先，包内仍有对象 |
 | **像素证明** | `fidelity` | 页图快照为主 | **0.0194** | 11→11 | 外观证明 / 归档观感 |
 
@@ -55,10 +55,10 @@
 | --- | --- |
 | 页数 ≈ 源页 | **11 → 11**（四模式） |
 | 文本 CER（`editable`） | **0.0** |
-| `positioned` mean MAD ≤ 0.055 | **0.0492** 达标 |
+| `positioned` mean MAD ≤ 0.055 | **0.0493** 达标 |
 | `hybrid` / `fidelity` 像素 | **0.0198** / **0.0194** |
 | 结构 / 表 / 图（`editable`） | pass |
-| 单元 + 集成测试 | **38 OK**（1 skipped） |
+| 单元 + 集成测试 | **42 OK**（1 skipped） |
 | GUI 烟测（macOS Cocoa） | 预检 + 四模式 + Open output，无闪退 |
 
 每份产物默认写入：
@@ -87,8 +87,8 @@
 
 | Mode | Pages | mean MAD | Overall |
 | --- | ---: | ---: | --- |
-| **editable** | 11 → 11 | **0.0724** | PASS（CER 0.0；visual warn） |
-| **positioned** | 11 → 11 | **0.0492** | PASS（≤0.055） |
+| **editable** | 11 → 11 | **0.0726** | PASS（CER 0.0；visual warn） |
+| **positioned** | 11 → 11 | **0.0493** | PASS（≤0.055） |
 | **hybrid** | 11 → 11 | **0.0198** | PASS |
 | **fidelity** | 11 → 11 | **0.0194** | PASS |
 
@@ -116,8 +116,8 @@ workspace/archive/v1.0.0-mvp/
 cd PDF-to-Word
 ./scripts/setup.sh       # venv + 锁定依赖 + GUI
 cp .env.example .env     # 配置 LibreOffice 路径
-./start.sh test          # 期望 38 OK
-./start.sh gui           # 桌面演示
+./start.sh               # 桌面 GUI 演示
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 ```
 
 锁定依赖见根目录 `requirements.txt`、`requirements-gui.txt`、`pyproject.toml`（版本 **1.0.0**）。
@@ -127,9 +127,9 @@ cp .env.example .env     # 配置 LibreOffice 路径
 ```bash
 export PDF2WORD_SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"  # 或写入 .env
 
-./start.sh convert sample.pdf --pages 1-3 --mode editable --out out.docx
-./start.sh convert sample.pdf --pages 1-11 --mode hybrid --out out.docx --dump-ir
-./start.sh test
+./scripts/cli.sh convert sample.pdf --pages 1-3 --mode editable --out out.docx
+./scripts/cli.sh convert sample.pdf --pages 1-11 --mode hybrid --out out.docx --dump-ir
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 ```
 
 ### 4.3 备份位置（本机打包）

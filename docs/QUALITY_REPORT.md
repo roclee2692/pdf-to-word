@@ -7,13 +7,13 @@ Baseline sample: `NIPS-2017-attention-is-all-you-need-Paper.pdf`.
 
 | Mode | Job | Pages | mean MAD | Overall |
 | --- | --- | ---: | ---: | --- |
-| **`editable`** | `workspace/jobs/release-v1/editable/` | **11 → 11** | **0.0724** | **PASS** (CER 0.0; visual warn) |
-| **`positioned`** | `workspace/jobs/release-v1/positioned/` | **11 → 11** | **0.0492** | **PASS** (≤0.055) |
+| **`editable`** | `workspace/archive/v1.0.0-mvp/` | **11 → 11** | **0.0726** | **PASS** (CER 0.0; visual warn) |
+| **`positioned`** | `workspace/archive/v1.0.0-mvp/` | **11 → 11** | **0.0493** | **PASS** (≤0.055) |
 | **`hybrid`** | `workspace/jobs/release-v1/hybrid/` | **11 → 11** | **0.0198** | **PASS** |
 | **`fidelity`** | `workspace/jobs/release-v1/fidelity/` | **11 → 11** | **0.0194** | **PASS** |
 
 Release archive: `workspace/archive/v1.0.0-mvp/` (`docx/`, `validation/`, `logs/`).  
-Unit tests at tag: **38 OK** (1 skipped). GUI smoke archive remains at `workspace/archive/gui-smoke-20260720/`.
+Unit tests: **42 OK** (1 skipped). GUI smoke archive: `workspace/archive/gui-smoke-20260720/`.
 
 Phase 4 / historical regression rows below are retained for audit.
 
@@ -66,7 +66,7 @@ LibreOffice is installed at `/Applications/LibreOffice.app/Contents/MacOS/soffic
 | `editable` pack-v1 | `workspace/jobs/pack-v1/` | 11 | **13** | +2 | 0.070 | FAIL |
 | `editable` pack-v9 | `workspace/jobs/pack-v9/` | 11 | **12** | +1 | 0.069 | PASS (tol≤1) |
 | `editable` pack-v14 | `workspace/jobs/pack-v14/` | 11 | **11** | 0 | **0.0692** | PASS (CER 0.0; structure footer warn) |
-| **`editable` mad-v10 (current)** | `workspace/jobs/mad-v10/` | 11 | **11** | **0** | **0.0724** | **PASS** (structure pass + CER 0.0; visual warn p2/p6) |
+| `editable` mad-v10 (historical) | `workspace/jobs/mad-v10/` | 11 | **11** | **0** | 0.0724 | PASS (structure pass + CER 0.0; visual warn p2/p6) |
 | `editable` IR 1.4 rerun | `workspace/jobs/phase3-editable4/` | 11 | **11** | 0 | 0.0738 | PASS |
 | **`editable` Phase 4 formula rerun** | `workspace/jobs/phase4-editable1/` | 11 | **11** | 0 | **0.0726** | **PASS** (CER 0.0; visual warn) |
 | `fidelity` (legacy inline snapshot) | phase3 / visual-fidelity-full11 | 11 | 11 | 0 | ~0.055 | PASS |
@@ -74,10 +74,10 @@ LibreOffice is installed at `/Applications/LibreOffice.app/Contents/MacOS/soffic
 | `positioned` DrawingML (pre-line-split) | `workspace/jobs/dml-pos2/` | 11 | 11 | 0 | 0.0612 | PASS (warn p2) |
 | `positioned` DrawingML (previous baseline) | `workspace/jobs/phase4-formula7/` | 11 | 11 | 0 | 0.0483 | PASS (≤0.055 target) |
 | `positioned` DrawingML (GUI smoke) | `workspace/archive/gui-smoke-20260720/` | 11 | **11** | 0 | 0.0493 | PASS (≤0.055) |
-| **`positioned` DrawingML (v1.0.0-mvp release)** | `workspace/jobs/release-v1/positioned/` + archive | 11 | **11** | 0 | **0.0492** | **PASS** (≤0.055) |
+| **`positioned` DrawingML (v1.0.0-mvp release)** | `workspace/archive/v1.0.0-mvp/` | 11 | **11** | 0 | **0.0493** | **PASS** (≤0.055) |
 | **`hybrid` snapshot+DrawingML** | `workspace/jobs/dml-hybrid1/` / release-v1 | 11 | **11** | 0 | **0.0198** | **PASS** |
 | **`hybrid` Phase 4 rerun** | `workspace/jobs/phase4-hybrid1/` | 11 | **11** | 0 | **0.0198** | **PASS** |
-| **`editable` v1.0.0-mvp release** | `workspace/jobs/release-v1/editable/` | 11 | **11** | 0 | **0.0724** | **PASS** (CER 0.0) |
+| **`editable` v1.0.0-mvp release** | `workspace/archive/v1.0.0-mvp/` | 11 | **11** | 0 | **0.0726** | **PASS** (CER 0.0) |
 | **`fidelity` v1.0.0-mvp release** | `workspace/jobs/release-v1/fidelity/` | 11 | **11** | 0 | **0.0194** | **PASS** |
 
 **v1.0.0-mvp release archive:** `workspace/archive/v1.0.0-mvp/` — four DOCX, validation JSON/MD, CLI logs, `preflight.json`.
@@ -88,7 +88,7 @@ GUI smoke archive (earlier same day): `workspace/archive/gui-smoke-20260720/` (P
 
 Delivered modes:
 
-1. **`positioned`** — `wp:anchor` + `wps:txbx` **per-source-line** text boxes, floating tables (`tblpPr`), anchored images. Release mean MAD **0.0492** (≤0.055). IR `1.4` stores `line_bboxes` for pixel anchoring.
+1. **`positioned`** — `wp:anchor` + `wps:txbx` **per-source-line** text boxes, floating tables (`tblpPr`), anchored images. Release mean MAD **0.0493** (≤0.055). IR `1.4` stores `line_bboxes` for pixel anchoring.
 2. **`hybrid`** — full-page snapshot with `behindDoc=1` + DrawingML editable layer using `w:vanish`. Mean MAD **0.0198**.
 3. **`fidelity`** — snapshot-only paint via the same behind-doc anchor; mean MAD **0.0194**.
 
@@ -133,7 +133,7 @@ Acceptance now:
 | Mode | Edit surface | Pixel authority | Typical MAD |
 | --- | --- | --- | ---: |
 | `editable` | Flow paragraphs | Reflow paint | ~0.07 |
-| `positioned` | DrawingML objects | DrawingML paint | **0.0492** |
+| `positioned` | DrawingML objects | DrawingML paint | **0.0493** |
 | `hybrid` | DrawingML (vanished) | Snapshot behind | **0.0198** |
 | `fidelity` | None / snapshot only | Snapshot | **0.0194** |
 
