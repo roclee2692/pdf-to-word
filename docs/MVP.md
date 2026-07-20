@@ -9,24 +9,24 @@ The first implementation deliberately avoids Agent repair.
 
 - `PdfBackend` protocol and `PdfPlumberBackend` (text, image streams, lines, rectangles, tables).
 - `NativeTextParser` → ordered paragraph/run elements with page-region and graphic evidence.
-- Canonical Document IR (schema **1.4**): image, table, formula, header/footer, separator, border, font slots, `line_bboxes`.
+- Canonical Document IR (schema **1.5**): image, table, formula, header/footer, separator, border, font slots, `line_bboxes`, source word-gap flags.
 - `EditableDocxRenderer`: continuous packing, multi-column collapse, inline images, STEM table compression, real tables, footer + PAGE field.
 - `FidelityDocxRenderer` DrawingML family: `positioned` / `hybrid` / `fidelity`.
 - Capability-aware preflight + router; optional adapters fall back to native.
 - `ValidationEngine`: structure / text (CER) / table / image / visual (LibreOffice MAD + page count).
 - CLI: `pdf2word convert` with four modes; optional `pdf2word gui` (PySide6).
-- Local job workspace + release archive under `workspace/archive/v1.0.0-mvp/`.
+- Local job workspace + final release archive under `workspace/archive/v1.0.0-mvp-final/`.
 
 ## Acceptance snapshot (Attention, 11 pages)
 
 | Mode | Pages | mean MAD | Notes |
 | --- | ---: | ---: | --- |
-| `editable` | 11 → 11 | 0.0726 | CER 0.0; visual warn on residual pages |
-| `positioned` | 11 → 11 | 0.0493 | ≤ 0.055 gate |
-| `hybrid` | 11 → 11 | 0.0198 | snapshot behind + vanish layer |
+| `editable` | 11 → 11 | 0.0734 | CER 0.0002; visual warn on residual pages |
+| `positioned` | 11 → 11 | 0.0492 | ≤ 0.055 gate |
+| `hybrid` | 11 → 11 | 0.0200 | snapshot behind + vanish layer |
 | `fidelity` | 11 → 11 | 0.0194 | snapshot proof |
 
-Unit tests: **42 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
+Unit tests: **44 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
 
 ## Next Engineering Steps
 

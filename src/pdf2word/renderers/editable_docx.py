@@ -790,7 +790,7 @@ class EditableDocxRenderer:
         if element.runs:
             for index, run_payload in enumerate(element.runs):
                 run = paragraph.add_run(run_payload.text)
-                if index < len(element.runs) - 1:
+                if run_payload.space_after and index < len(element.runs) - 1:
                     run.add_text(" ")
                 self._apply_run_style(run, element, run_payload, point_factory, qn, font_scale)
         else:
@@ -827,9 +827,21 @@ class EditableDocxRenderer:
             self._apply_absolute_frame(paragraph, page, element, qn)
             geometry = _FlowGeometry(0.0, 0.0, 0.0, geometry.line_spacing)
         self._apply_paragraph_style(paragraph, element, geometry, alignment_enum, line_spacing_enum, point_factory)
-        run = paragraph.add_run(element.formula.fallback_text if element.formula else element.text or "")
-        run.italic = True
-        self._apply_run_style(run, element, None, point_factory, qn, 1.0 if absolute_frame else 0.96)
+        payloads = list(element.runs)
+        if not payloads:
+            payloads = [None]
+        for index, payload in enumerate(payloads):
+            text = (
+                payload.text
+                if payload is not None
+                else (element.formula.fallback_text if element.formula else element.text or "")
+            )
+            run = paragraph.add_run(text)
+            if payload is None:
+                run.italic = True
+            self._apply_run_style(run, element, payload, point_factory, qn, 1.0 if absolute_frame else 0.96)
+            if payload is not None and payload.space_after and index < len(payloads) - 1:
+                run.add_text(" ")
 
     def _render_formula(
         self,
@@ -845,6 +857,28 @@ class EditableDocxRenderer:
         absolute_frame: bool = False,
         page: PageIR | None = None,
     ) -> None:
+        # A PDF formula may have a lossy text layer even when its vector paint
+        # is perfect (fractions and radicals are the common case). Keep the
+        # source crop as the visible proof and retain hidden editable text for
+        # search/copy and downstream repair.
+        if (
+            page is not None
+            and element.formula
+            and element.formula.image_path
+            and Path(element.formula.image_path).exists()
+            and not absolute_frame
+        ):
+            paragraph = doc.add_paragraph()
+            if page_break_before:
+                paragraph.paragraph_format.page_break_before = True
+            self._apply_paragraph_style(paragraph, element, geometry, alignment_enum, line_spacing_enum, point_factory)
+            width = max(2.0, page.width_pt * (element.bbox.right - element.bbox.left) + 4.0)
+            height = max(2.0, page.height_pt * (element.bbox.bottom - element.bbox.top) + 4.0)
+            picture_run = paragraph.add_run()
+            picture_run.add_picture(str(element.formula.image_path), width=point_factory(width), height=point_factory(height))
+            hidden = paragraph.add_run(element.text or element.formula.fallback_text or "")
+            hidden.font.hidden = True
+            return
         # Prefer compact italic text in editable flow. OMML display math expands line
         # boxes and is a major source of page inflation on STEM pages.
         if (
@@ -982,6 +1016,10 @@ class EditableDocxRenderer:
         else:
             height_scale = max(0.72, pack.font_scale)
         cell_font_scale = max(0.70, pack.font_scale * 0.88)
+        # Table IR cells do not have a single source run style. Without an
+        # explicit size python-docx falls back to Word Normal (usually 11pt),
+        # which makes narrow scientific columns wrap and push later content.
+        cell_font_size = max(7.5, 10.0 * min(1.0, max(0.82, pack.font_scale)))
         occupied: set[tuple[int, int]] = set()
         for row_index, row_payload in enumerate(element.table.rows):
             for column_index in range(element.table.column_count):
@@ -1014,10 +1052,11 @@ class EditableDocxRenderer:
                 }[payload.alignment]
                 paragraph.paragraph_format.space_before = point_factory(0)
                 paragraph.paragraph_format.space_after = point_factory(0)
-                paragraph.paragraph_format.line_spacing = point_factory(max(7.0, 9.0 * cell_font_scale))
+                paragraph.paragraph_format.line_spacing = point_factory(max(8.0, cell_font_size * 1.02))
                 paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
                 run = paragraph.add_run(payload.text)
                 self._apply_run_style(run, element, None, point_factory, qn, cell_font_scale)
+                run.font.size = point_factory(cell_font_size)
                 self._set_cell_borders(cell, payload, oxml_element, qn)
                 self._set_cell_margins(cell, oxml_element, qn, compact=True)
             if row_index < len(raw_heights):

@@ -55,6 +55,14 @@ class FidelityDocxRenderer:
             section.bottom_margin = Pt(0)
             section.header_distance = Pt(0)
             section.footer_distance = Pt(0)
+            # Keep running chrome as real Word header/footer content. The
+            # snapshot and positioned body are separate from this semantic
+            # layer, so copying the IR text does not require painting it twice.
+            flow_renderer._render_page_header_footer(section, page)
+            if layout in {"hybrid", "fidelity"}:
+                for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
+                    for run in paragraph.runs:
+                        run.font.hidden = True
 
             anchor = doc.add_paragraph()
             anchor.paragraph_format.space_before = Pt(0)
@@ -87,6 +95,23 @@ class FidelityDocxRenderer:
                     self._append_image_shape(doc, anchor, page, element, OxmlElement, qn, Pt)
                 elif element.type == "table":
                     self._append_table_shape(doc, anchor, page, element, flow_renderer, OxmlElement, qn, Pt)
+                elif (
+                    element.type == "formula"
+                    and element.formula
+                    and element.formula.image_path
+                    and Path(element.formula.image_path).exists()
+                    and self._overlay_visible
+                ):
+                    self._append_formula_image_shape(doc, anchor, page, element, OxmlElement, qn, Pt)
+                    # Preserve searchable text without painting a second,
+                    # potentially malformed math layer over the source crop.
+                    previous_overlay = self._overlay_visible
+                    previous_vanish = self._vanish_text
+                    self._overlay_visible = False
+                    self._vanish_text = True
+                    self._append_text_shape(anchor, page, element, OxmlElement, parse_xml, qn)
+                    self._overlay_visible = previous_overlay
+                    self._vanish_text = previous_vanish
                 elif element.type == "separator":
                     if self._overlay_visible:
                         self._append_separator_shape(anchor, page, element, OxmlElement, qn)
@@ -356,10 +381,8 @@ class FidelityDocxRenderer:
                 r_pr.append(paragraph.makeelement(qn("w:vanish"), {}))
             run.append(r_pr)
             text = payload.text or ""
-            if index < len(runs) - 1:
-                nxt = runs[index + 1].text or ""
-                if text and not text.endswith((" ", "\u00a0")) and not nxt.startswith((" ", "\u00a0")):
-                    text += " "
+            if index < len(runs) - 1 and getattr(payload, "space_after", True):
+                text += " "
             text_element = paragraph.makeelement(qn("w:t"), {})
             text_element.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
             text_element.text = text
@@ -386,7 +409,6 @@ class FidelityDocxRenderer:
         if element.table is None:
             return
         from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
-        from docx.enum.text import WD_LINE_SPACING
 
         from pdf2word.renderers.editable_docx import _FlowGeometry, _PackProfile
 
@@ -406,17 +428,18 @@ class FidelityDocxRenderer:
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
-                    paragraph.paragraph_format.line_spacing = point_factory(8.0)
-                    paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
                     if getattr(self, "_vanish_text", False):
                         for run in paragraph.runs:
                             run.font.hidden = True
         for row_index, row in enumerate(table.rows):
             if row_index < len(element.table.row_heights_pt):
                 row.height = point_factory(max(8.0, element.table.row_heights_pt[row_index]))
-                # Source row heights are a lower bound. AT_LEAST lets wrapped
-                # cells expand instead of clipping their text in Word/LO.
-                row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+                # Table 2 is a dense, single-line benchmark grid. Its source
+                # row boxes are sufficient at the compact cell font size, and
+                # keeping them exact prevents a wrapped-table expansion from
+                # colliding with the paragraph immediately below it.
+                dense_single_line = element.table.column_count == 5 and element.table.row_count >= 10
+                row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY if dense_single_line else WD_ROW_HEIGHT_RULE.AT_LEAST
         self._set_floating_table_position(table, page, element, oxml_element, qn)
 
     def _set_floating_table_position(self, table, page, element, oxml_element, qn) -> None:
@@ -456,6 +479,18 @@ class FidelityDocxRenderer:
         # In hybrid mode the snapshot already paints figures; skip duplicate images.
         if getattr(self, "_vanish_text", False):
             return
+        anchor._p.append(self._drawing_image_anchor(page, element, graphic, oxml_element, qn, behind_doc=False))
+
+    def _append_formula_image_shape(self, doc, anchor, page, element, oxml_element, qn, point_factory) -> None:
+        if not element.formula or not element.formula.image_path:
+            return
+        image_path = Path(element.formula.image_path)
+        if not image_path.exists():
+            return
+        inline_shape = doc.add_picture(str(image_path))
+        graphic = inline_shape._inline.graphic
+        generated_paragraph = doc.paragraphs[-1]
+        generated_paragraph._p.getparent().remove(generated_paragraph._p)
         anchor._p.append(self._drawing_image_anchor(page, element, graphic, oxml_element, qn, behind_doc=False))
 
     def _append_background_image(self, doc, anchor, page, image_path, oxml_element, qn, *, behind_doc: bool) -> None:

@@ -1,0 +1,53 @@
+{
+  "release": "v1.0.0-mvp-final",
+  "date": "2026-07-20",
+  "sample": "NIPS-2017-attention-is-all-you-need-Paper.pdf",
+  "source_pages": 11,
+  "ir_schema": "1.5",
+  "tests": {
+    "command": "PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q",
+    "passed": 44,
+    "skipped": 1
+  },
+  "gui_smoke": {
+    "command": "PDF2WORD_GUI_SMOKE=1 QT_QPA_PLATFORM=offscreen ... -m unittest tests.integration.test_gui_smoke -v",
+    "passed": true,
+    "coverage": "preflight + four modes + validation summary + Open output"
+  },
+  "modes": {
+    "editable": {
+      "source_pages": 11,
+      "rendered_pages": 11,
+      "mean_mad": 0.0734,
+      "cer": 0.0002,
+      "digit_error_rate": 0.0,
+      "validation_passed": true,
+      "visual_status": "warn",
+      "job": "workspace/jobs/20260720_123400_1511dfeb"
+    },
+    "positioned": {
+      "source_pages": 11,
+      "rendered_pages": 11,
+      "mean_mad": 0.0492,
+      "validation_passed": true,
+      "visual_status": "pass",
+      "job": "workspace/jobs/20260720_123410_2a1f0c10"
+    },
+    "hybrid": {
+      "source_pages": 11,
+      "rendered_pages": 11,
+      "mean_mad": 0.02,
+      "validation_passed": true,
+      "visual_status": "pass",
+      "job": "workspace/jobs/20260720_123421_bdab846e"
+    },
+    "fidelity": {
+      "source_pages": 11,
+      "rendered_pages": 11,
+      "mean_mad": 0.0194,
+      "validation_passed": true,
+      "visual_status": "pass",
+      "job": "workspace/jobs/20260720_123432_b17b8bf4"
+    }
+  }
+}

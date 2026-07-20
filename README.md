@@ -67,7 +67,7 @@ export PDF2WORD_SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
-# Expected: Ran 42 tests ... OK (skipped=1)
+# Expected: Ran 44 tests ... OK (skipped=1)
 ```
 
 ---
@@ -90,15 +90,32 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 ## 验收亮点（Attention 论文 · 全 11 页）
 
 样本：`NIPS-2017-attention-is-all-you-need-Paper.pdf`  
-证据：`workspace/archive/v1.0.0-mvp/`
+证据：`workspace/archive/v1.0.0-mvp-final/`
 
 | 指标 | 结果 |
 | --- | --- |
 | 页数 | **11 → 11**（四种模式） |
-| 文本 CER（`editable`） | **0.0** |
-| `positioned` mean MAD | **0.0493**（≤ 0.055） |
-| `hybrid` / `fidelity` mean MAD | **0.0198 / 0.0194**（像素工具） |
-| 单测 | **42 OK**（1 skipped；GUI smoke 单独执行） |
+| 文本 CER（`editable`） | **0.0002**（数字错误率 0.0） |
+| `editable` mean MAD | **0.0734**（语义流模式，视觉警告不影响结构门禁） |
+| `positioned` mean MAD | **0.0492**（≤ 0.055） |
+| `hybrid` / `fidelity` mean MAD | **0.0200 / 0.0194**（像素工具） |
+| 单测 | **44 OK**（1 skipped；GUI smoke 已通过） |
+
+最终产物与逐模式报告归档于 `workspace/archive/v1.0.0-mvp-final/`：
+`docx/`、`validation/`、`validation_report.json`、`preflight/`、`ir/`。
+
+### GUI 操作
+
+`./start.sh` 启动后，拖入 PDF，点击 **Preflight** 查看文档类型和降级提示，选择模式后点击 **Convert**。进度区会显示当前阶段和验证摘要（页数、MAD、CER）；完成后点击 **Open output** 直接打开 DOCX。默认使用 `positioned`。
+
+模式选择建议：
+
+- `positioned`：默认交付，原生 DrawingML 文本框、表格和图片对象，适合需要尽量保留版式且还要编辑的文档。
+- `editable`：连续 Word 流和真表格，适合大段复制、改写和重新排版。
+- `hybrid`：页图作为视觉底稿，同时保留隐藏的可编辑层，适合像素对照验收。
+- `fidelity`：页图快照为主，适合归档和外观证明，不适合作为主要编辑版本。
+
+公式说明：能稳定识别的简单公式会生成 OMML；复杂或 PDF 文本层损坏的展示公式会保留源坐标公式裁剪图，并写入隐藏文本 fallback，确保显示完整且可搜索，但暂不保证所有复杂公式都是原生可编辑 OMML。
 
 ---
 
@@ -129,7 +146,7 @@ docs/             # 施工日志 / 质量报告
 start.sh          # 一键 GUI（读 .env，写 logs/start.log）
 scripts/setup.sh  # 环境安装
 scripts/cli.sh    # CLI 包装
-workspace/archive/v1.0.0-mvp/
+workspace/archive/v1.0.0-mvp-final/
 ```
 
 | 文档 | 内容 |

@@ -98,6 +98,8 @@ class ElementStyle(BaseModel):
 class TextRun(BaseModel):
     text: str
     line_break_before: bool = False
+    # Preserve the source word gap instead of making renderers guess one.
+    space_after: bool = True
     font_family: str | None = None
     source_font_family: str | None = None
     font_slots: FontSlots | None = None
@@ -226,7 +228,7 @@ class DocumentMeta(BaseModel):
 
 
 class DocumentIR(BaseModel):
-    schema_version: str = "1.4"
+    schema_version: str = "1.5"
     document: DocumentMeta
     pages: list[PageIR] = Field(default_factory=list)
 

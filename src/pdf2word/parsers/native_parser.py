@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import re
+from pathlib import Path
+import tempfile
 from xml.sax.saxutils import escape
 
 from pdf2word.domain import (
@@ -39,6 +40,7 @@ class NativeTextParser:
             lines = backend.extract_lines(page_no)
             rects = backend.extract_rects(page_no)
             elements = self._page_to_elements(words, tables, images, lines, rects, page_no, width, height)
+            elements = self._attach_formula_assets(backend, elements, page_no, width, height)
             parsed_pages.append(
                 PageIR(
                     id=f"page_{page_no:03d}",
@@ -119,6 +121,53 @@ class NativeTextParser:
         elements.extend(graphic_elements)
 
         return self._renumber_for_reading_order(elements, page_width, page_height)
+
+    def _attach_formula_assets(
+        self,
+        backend: PdfBackend,
+        elements: list[DocumentElement],
+        page_no: int,
+        page_width: float,
+        page_height: float,
+    ) -> list[DocumentElement]:
+        renderer = getattr(backend, "render_crop", None)
+        if renderer is None:
+            return elements
+        configured_dir = getattr(backend, "image_output_dir", None)
+        output_dir = (
+            Path(configured_dir) / "formulas"
+            if configured_dir
+            else Path(tempfile.gettempdir()) / "pdf2word-formulas"
+        )
+        updated: list[DocumentElement] = []
+        formula_index = 0
+        for element in elements:
+            if element.type != "formula" or element.formula is None:
+                updated.append(element)
+                continue
+            formula_index += 1
+            bbox = element.bbox
+            crop_bbox = (
+                bbox.left * page_width,
+                bbox.top * page_height,
+                bbox.right * page_width,
+                bbox.bottom * page_height,
+            )
+            output = output_dir / f"page_{page_no:03d}_formula_{formula_index:03d}.png"
+            try:
+                image_path = renderer(page_no, crop_bbox, output)
+            except Exception:
+                image_path = None
+            if image_path:
+                element = element.model_copy(
+                    update={
+                        "formula": element.formula.model_copy(
+                            update={"image_path": str(image_path), "source_type": "raster"}
+                        )
+                    }
+                )
+            updated.append(element)
+        return updated
 
     def _graphics_to_elements(
         self,
@@ -263,7 +312,6 @@ class NativeTextParser:
         elements: list[DocumentElement] = []
         for index, group in enumerate(groups, start=1):
             words_in_group = [word for info in group for word in info["line"]]
-            text = " ".join(info["text"] for info in group).strip()
             x0 = min(info["x0"] for info in group)
             top = min(info["top"] for info in group)
             x1 = max(info["x1"] for info in group)
@@ -276,6 +324,10 @@ class NativeTextParser:
                 element_type = "formula" if types_in_group == {"formula"} else "paragraph"
             else:
                 element_type = group[0]["element_type"]
+            # Build runs before the final text so mathematical glyphs that
+            # sit above/below the baseline remain attached to their formula.
+            runs = self._runs_for_line_group(group, formula=element_type == "formula")
+            text = self._text_from_runs(runs, formula=element_type == "formula")
             page_region = group[0]["page_region"]
             avg_size = self._average_size(words_in_group)
             # Estimate line spacing from source line boxes for the editable packer.
@@ -301,7 +353,7 @@ class NativeTextParser:
                     type=element_type,
                     role=self._role_for_text_element(element_type, page_region),
                     text=text,
-                    runs=self._runs_for_line_group(group),
+                    runs=runs,
                     page_region=page_region,
                     bbox=BoundingBox.from_points(x0, top, x1, bottom, page_width, page_height),
                     line_bboxes=line_bboxes,
@@ -544,6 +596,8 @@ class NativeTextParser:
                 )
             row_payloads.append(payload_row)
 
+        self._merge_spanning_label_rows(row_payloads)
+
         text = "\n".join("\t".join(cell.text if cell is not None else "" for cell in row) for row in row_payloads)
         return DocumentElement(
             id=f"p{page_no:03d}_table_{index:04d}",
@@ -570,6 +624,54 @@ class NativeTextParser:
             provenance=Provenance(parser=self.name, source_page=page_no, source="pdfplumber_table"),
         )
 
+    def _merge_spanning_label_rows(self, rows: list[list[TableCellPayload | None]]) -> None:
+        """Join long descriptive cells that a sparse PDF grid split by x."""
+        for row in rows:
+            indices = [
+                index
+                for index, cell in enumerate(row)
+                if cell is not None and cell.text.strip()
+            ]
+            phrase_indices = [
+                index
+                for index in indices
+                if any(
+                    marker in row[index].text.lower()
+                    for marker in ("positional", "embedding", "instead", "sinusoid")
+                )
+            ]
+            if len(phrase_indices) < 3:
+                continue
+            start, end = min(phrase_indices), max(phrase_indices)
+            if end - start < 2:
+                continue
+            cells = [row[index] for index in range(start, end + 1) if row[index] is not None]
+            if len(cells) < 3:
+                continue
+            bboxes = [cell.bbox for cell in cells if cell.bbox is not None]
+            if not bboxes:
+                continue
+            first, last = bboxes[0], bboxes[-1]
+            merged = TableCellPayload(
+                text=" ".join(cell.text.strip() for cell in cells if cell.text.strip()),
+                bbox=BoundingBox(
+                    left=first.left,
+                    top=min(box.top for box in bboxes),
+                    right=last.right,
+                    bottom=max(box.bottom for box in bboxes),
+                ),
+                col_span=end - start + 1,
+                alignment="center",
+                vertical_alignment="center",
+                top_border=cells[0].top_border,
+                right_border=cells[-1].right_border,
+                bottom_border=cells[0].bottom_border,
+                left_border=cells[0].left_border,
+            )
+            row[start] = merged
+            for index in range(start + 1, end + 1):
+                row[index] = None
+
     def _table_edges(self, cell_bboxes, axis: int) -> list[float]:
         values: list[float] = []
         end_axis = axis + 2
@@ -595,11 +697,66 @@ class NativeTextParser:
         return max(1, end - start)
 
     def _group_words_by_line(self, words: list[PdfTextObject]) -> list[list[PdfTextObject]]:
-        buckets: dict[int, list[PdfTextObject]] = defaultdict(list)
-        for word in sorted(words, key=lambda item: (item.top, item.x0)):
-            key = round(word.top / 3)
-            buckets[key].append(word)
-        return [buckets[key] for key in sorted(buckets)]
+        """Group baseline text plus nearby PDF superscript/subscript glyphs."""
+        groups: list[list[PdfTextObject]] = []
+        for word in sorted(words, key=lambda item: ((item.top + item.bottom) / 2, item.x0)):
+            center = (word.top + word.bottom) / 2
+            if groups:
+                previous = groups[-1]
+                previous_center = sum((item.top + item.bottom) / 2 for item in previous) / len(previous)
+                # A 10pt PDF line is about 11pt apart. A 7pt math glyph
+                # belongs to its 10pt baseline when it is within 6pt.
+                if abs(center - previous_center) <= 6.0:
+                    previous.append(word)
+                    continue
+            groups.append([word])
+        # Display math can place a radical, numerator, or denominator more
+        # than 6pt away from its baseline. Attach a compact math-only group to
+        # the overlapping broad line without joining ordinary paragraph lines.
+        merged: list[list[PdfTextObject]] = []
+        for group in groups:
+            if merged and self._can_attach_math_fragment(merged[-1], group):
+                merged[-1].extend(group)
+            elif merged and self._can_attach_math_fragment(group, merged[-1]):
+                merged[-1].extend(group)
+            else:
+                merged.append(group)
+        return merged
+
+    def _can_attach_math_fragment(
+        self,
+        fragment: list[PdfTextObject],
+        candidate: list[PdfTextObject],
+    ) -> bool:
+        if not fragment or not candidate or len(fragment) > 8:
+            return False
+        fragment_left = min(word.x0 for word in fragment)
+        fragment_right = max(word.x1 for word in fragment)
+        candidate_left = min(word.x0 for word in candidate)
+        candidate_right = max(word.x1 for word in candidate)
+        fragment_width = fragment_right - fragment_left
+        candidate_width = candidate_right - candidate_left
+        if fragment_width >= 80.0 or fragment_width >= candidate_width * 0.42:
+            return False
+        if fragment_left < candidate_left - 2.0 or fragment_right > candidate_right + 2.0:
+            return False
+        fragment_center = sum((word.top + word.bottom) / 2 for word in fragment) / len(fragment)
+        candidate_center = sum((word.top + word.bottom) / 2 for word in candidate) / len(candidate)
+        if abs(fragment_center - candidate_center) > 13.0:
+            return False
+        # A short math-looking line that starts exactly at the paragraph's
+        # left edge is usually the next source line (for example ``P_drop =
+        # 0.1``), not a superscript fragment inside the line above it.
+        if abs(fragment_left - candidate_left) <= 5.0 and fragment_center > candidate_center + 7.0:
+            return False
+        return any(self._is_math_word(word) for word in fragment)
+
+    def _is_math_word(self, word: PdfTextObject) -> bool:
+        font = (word.font_name or "").lower()
+        text = word.text or ""
+        return any(token in font for token in ("cmmi", "cmr", "cmsy", "msam", "symbol")) or any(
+            marker in text for marker in ("√", "∑", "∫", "−", "·", "≤", "≥", "≠", "→")
+        )
 
     def _average_size(self, words: list[PdfTextObject]) -> float | None:
         sizes = [word.font_size for word in words if word.font_size]
@@ -662,7 +819,10 @@ class NativeTextParser:
         value = " ".join(text.split())
         if not value or len(value) > 120:
             return False
-        math_markers = ("=", "\\", "∑", "∫", "√", "≤", "≥", "≠", "→", "α", "β", "γ", "λ", "^", "_")
+        math_markers = (
+            "=", "\\", "∑", "∫", "√", "≤", "≥", "≠", "→", "α", "β", "γ", "λ",
+            "^", "_", "−", "·", "×", "∞", "∂", "∈", "∇", "≈", "≡",
+        )
         marker_hits = sum(value.count(marker) for marker in math_markers)
         if marker_hits == 0:
             return False
@@ -671,7 +831,7 @@ class NativeTextParser:
         # Long prose with a single '=' is not a display formula.
         if alpha_words >= 8 and marker_hits <= 1:
             return False
-        if len(value) <= 80 and marker_hits >= 1 and alpha_words <= 10:
+        if len(value) <= 180 and marker_hits >= 1 and alpha_words <= 12:
             return True
         return marker_hits >= 2 and alpha_words <= 6
 
@@ -804,15 +964,63 @@ class NativeTextParser:
             color=self._color_to_hex(word.color),
         )
 
-    def _runs_for_line_group(self, group: list[dict]) -> list[TextRun]:
+    def _runs_for_line_group(self, group: list[dict], *, formula: bool = False) -> list[TextRun]:
         runs: list[TextRun] = []
         for line_index, info in enumerate(group):
-            for word_index, word in enumerate(info["line"]):
+            line = sorted(info["line"], key=lambda item: item.x0)
+            sizes = [word.font_size for word in line if word.font_size]
+            baseline_size = max(sizes, default=10.0)
+            baseline_centers = [
+                (word.top + word.bottom) / 2
+                for word in line
+                if (word.font_size or baseline_size) >= baseline_size * 0.84
+            ]
+            baseline_y = sum(baseline_centers) / len(baseline_centers) if baseline_centers else 0.0
+            for word_index, word in enumerate(line):
                 run = self._word_to_run(word)
-                if line_index > 0 and word_index == 0:
-                    run = run.model_copy(update={"line_break_before": True})
+                small = (word.font_size or baseline_size) < baseline_size * 0.84
+                center_y = (word.top + word.bottom) / 2
+                superscript = formula and small and center_y < baseline_y - 1.0
+                subscript = formula and small and center_y > baseline_y + 1.0
+                next_word = line[word_index + 1] if word_index + 1 < len(line) else None
+                space_after = True
+                if next_word is not None:
+                    next_center = (next_word.top + next_word.bottom) / 2
+                    next_small = (next_word.font_size or baseline_size) < baseline_size * 0.84
+                    gap = next_word.x0 - word.x1
+                    space_after = gap > max(0.8, (word.font_size or baseline_size) * 0.12)
+                    if formula and (small or next_small) and abs(next_center - baseline_y) > 1.0:
+                        space_after = False
+                    if word.text.endswith(("(", "[", "{")) or next_word.text.startswith((".", ",", ";", ":", ")", "]", "}")):
+                        space_after = False
+                run = run.model_copy(
+                    update={
+                        "line_break_before": line_index > 0 and word_index == 0,
+                        "space_after": space_after,
+                        "superscript": superscript,
+                        "subscript": subscript,
+                    }
+                )
                 runs.append(run)
         return runs
+
+    def _text_from_runs(self, runs: list[TextRun], *, formula: bool = False) -> str:
+        chunks: list[str] = []
+        previous_script: str | None = None
+        for run in runs:
+            if run.line_break_before:
+                chunks.append("\n")
+            script = "sup" if formula and run.superscript else "sub" if formula and run.subscript else None
+            if script != previous_script:
+                if script == "sup":
+                    chunks.append("^")
+                elif script == "sub":
+                    chunks.append("_")
+            previous_script = script
+            chunks.append(run.text)
+            if run.space_after:
+                chunks.append(" ")
+        return "".join(chunks).strip()
 
     def _font_slots(self, words: list[PdfTextObject]) -> FontSlots | None:
         font = self._common_font(words)

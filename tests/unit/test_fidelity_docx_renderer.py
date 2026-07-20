@@ -10,6 +10,7 @@ from pdf2word.domain import (
     DocumentMeta,
     ElementStyle,
     ImagePayload,
+    HeaderFooterPayload,
     PageIR,
     Provenance,
     TableCellPayload,
@@ -92,6 +93,45 @@ class FidelityDocxRendererTests(unittest.TestCase):
             self.assertIn("wps:txbx", xml)
             self.assertIn("wp:anchor", xml)
             self.assertIn("Editable fallback text", xml)
+
+    def test_positioned_mode_preserves_real_header_and_footer_parts(self):
+        from docx import Document
+
+        page = self._page()
+        page.elements.extend(
+            [
+                DocumentElement(
+                    id="header_001",
+                    type="header",
+                    text="Running header",
+                    page_region="header",
+                    bbox=BoundingBox(left=0.1, top=0.02, right=0.9, bottom=0.05),
+                    reading_order=2,
+                    header_footer=HeaderFooterPayload(kind="header", text="Running header"),
+                    provenance=Provenance(parser="test", source_page=1),
+                ),
+                DocumentElement(
+                    id="footer_001",
+                    type="footer",
+                    text="7",
+                    page_region="footer",
+                    bbox=BoundingBox(left=0.45, top=0.94, right=0.55, bottom=0.97),
+                    reading_order=3,
+                    header_footer=HeaderFooterPayload(kind="footer", text="7"),
+                    provenance=Provenance(parser="test", source_page=1),
+                ),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "chrome.docx"
+            FidelityDocxRenderer().render(
+                DocumentIR(document=DocumentMeta(page_count=1), pages=[page]),
+                output,
+                layout="positioned",
+            )
+            doc = Document(output)
+            self.assertEqual(doc.sections[0].header.paragraphs[0].text, "Running header")
+            self.assertEqual(doc.sections[0].footer.paragraphs[0].text, "7")
 
     def test_long_positioned_line_gets_font_fit_scale(self):
         from docx import Document

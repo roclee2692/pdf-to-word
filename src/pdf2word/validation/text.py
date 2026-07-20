@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 import re
 import unicodedata
 
@@ -140,6 +141,27 @@ def validate_text(document_ir: DocumentIR, docx: DocxSnapshot) -> tuple[LayerSum
 
 
 def _levenshtein(left: str, right: str) -> int:
+    # Full quadratic DP is fine for unit-sized snippets but can stall a real
+    # paper once both sides exceed tens of thousands of characters. Use the
+    # matching blocks to reduce long comparisons to their changed spans, then
+    # retain exact Levenshtein for each bounded span.
+    if len(left) * len(right) > 4_000_000:
+        matcher = SequenceMatcher(None, left, right, autojunk=True)
+        distance = 0
+        for tag, left_start, left_end, right_start, right_end in matcher.get_opcodes():
+            if tag == "equal":
+                continue
+            left_chunk = left[left_start:left_end]
+            right_chunk = right[right_start:right_end]
+            if len(left_chunk) * len(right_chunk) <= 4_000_000:
+                distance += _levenshtein_exact(left_chunk, right_chunk)
+            else:
+                distance += max(len(left_chunk), len(right_chunk))
+        return distance
+    return _levenshtein_exact(left, right)
+
+
+def _levenshtein_exact(left: str, right: str) -> int:
     if left == right:
         return 0
     if not left:

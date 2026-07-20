@@ -90,3 +90,13 @@ class PdfBackend(Protocol):
 
     def inspect_metadata(self) -> dict[str, object]:
         ...
+
+    def render_crop(
+        self,
+        page_no: int,
+        bbox: tuple[float, float, float, float],
+        output_path: str,
+        *,
+        padding_pt: float = 2.0,
+    ) -> str:
+        ...

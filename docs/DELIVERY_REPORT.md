@@ -3,9 +3,9 @@
 | 字段 | 内容 |
 | --- | --- |
 | 产品名 | PDF-to-Word（包名 `pdf2word-agent`） |
-| 版本 | **v1.0.0-mvp** |
+| 版本 | **v1.0.0-mvp-final** |
 | 交付日期 | 2026-07-20 |
-| Git 标签 | `v1.0.0-mvp`（commit 见仓库 `git rev-parse HEAD`） |
+| Git 标签 | `v1.0.0-mvp-final`（本次修复完成后新增最终提交） |
 | 基线样本 | `NIPS-2017-attention-is-all-you-need-Paper.pdf`（11 页） |
 | 许可 | Apache-2.0 |
 
@@ -38,27 +38,27 @@
 
 | 方案 | 模式 | 含义 | 基线 mean MAD | 页数 | 推荐场景 |
 | --- | --- | --- | ---: | ---: | --- |
-| **可编辑** | `editable` | 流式段落、真表格、软分页 | **0.0726** | 11→11 | 复制改写、长文重排 |
-| **可编辑 + 定位** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0493** | 11→11 | 原生对象 + 像素门禁 ≤0.055 |
-| **高保真** | `hybrid` | 页图 behindDoc + 可编辑层（vanish） | **0.0198** | 11→11 | 像素优先，包内仍有对象 |
+| **可编辑** | `editable` | 流式段落、真表格、软分页 | **0.0734** | 11→11 | 复制改写、长文重排 |
+| **可编辑 + 定位** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0492** | 11→11 | 原生对象 + 像素门禁 ≤0.055 |
+| **高保真** | `hybrid` | 页图 behindDoc + 可编辑层（vanish） | **0.0200** | 11→11 | 像素优先，包内仍有对象 |
 | **像素证明** | `fidelity` | 页图快照为主 | **0.0194** | 11→11 | 外观证明 / 归档观感 |
 
 关键实现决策：
 
 - LibreOffice 下使用 **DrawingML**（`wp:anchor` + `wps:txbx`），**不用** `w:framePr`（会导致页数崩溃）。  
 - `editable` 采用 **连续 section + 软分页**；历史「每页硬分节」曾把 11 页撑到 21 页。  
-- `positioned` 按源行拆框，IR `line_bboxes`（schema 1.4）逐行锚定。
+- `positioned` 按源行拆框，IR `line_bboxes`（schema 1.5）逐行锚定；公式保留源坐标裁剪图和隐藏 fallback。
 
 ### 2.2 验证与门禁
 
 | 门禁 | v1.0.0-mvp 结果 |
 | --- | --- |
 | 页数 ≈ 源页 | **11 → 11**（四模式） |
-| 文本 CER（`editable`） | **0.0** |
-| `positioned` mean MAD ≤ 0.055 | **0.0493** 达标 |
-| `hybrid` / `fidelity` 像素 | **0.0198** / **0.0194** |
+| 文本 CER（`editable`） | **0.0002**（数字错误率 0.0） |
+| `positioned` mean MAD ≤ 0.055 | **0.0492** 达标 |
+| `hybrid` / `fidelity` 像素 | **0.0200** / **0.0194** |
 | 结构 / 表 / 图（`editable`） | pass |
-| 单元 + 集成测试 | **42 OK**（1 skipped） |
+| 单元 + 集成测试 | **44 OK**（1 skipped） |
 | GUI 烟测（macOS Cocoa） | 预检 + 四模式 + Open output，无闪退 |
 
 每份产物默认写入：
@@ -70,12 +70,12 @@
 ### 2.3 已实现工程范围（摘要）
 
 - `PdfPlumberBackend`：文本层、图片流、线/框、表几何  
-- Canonical IR schema **1.4**（含 `line_bboxes`、字体槽、表合并占位等）  
+- Canonical IR schema **1.5**（含 `line_bboxes`、字体槽、表合并占位、源词间距标记等）
 - 原生解析 + 能力感知路由；外置引擎不可用则降级 native  
 - `EditableDocxRenderer`：连续流打包、多栏折叠、图嵌入、STEM 表压缩  
 - `FidelityDocxRenderer`：`positioned` / `hybrid` / `fidelity`  
 - CLI：`pdf2word convert`；GUI：`pdf2word gui`（PySide6）  
-- 本地 job workspace；发布证据 `workspace/archive/v1.0.0-mvp/`
+- 本地 job workspace；发布证据 `workspace/archive/v1.0.0-mvp-final/`
 
 更细的工程清单见 [MVP.md](MVP.md)；历史 MAD 迭代见 [QUALITY_REPORT.md](QUALITY_REPORT.md)。
 
@@ -87,9 +87,9 @@
 
 | Mode | Pages | mean MAD | Overall |
 | --- | ---: | ---: | --- |
-| **editable** | 11 → 11 | **0.0726** | PASS（CER 0.0；visual warn） |
-| **positioned** | 11 → 11 | **0.0493** | PASS（≤0.055） |
-| **hybrid** | 11 → 11 | **0.0198** | PASS |
+| **editable** | 11 → 11 | **0.0734** | PASS（CER 0.0002；visual warn） |
+| **positioned** | 11 → 11 | **0.0492** | PASS（≤0.055） |
+| **hybrid** | 11 → 11 | **0.0200** | PASS |
 | **fidelity** | 11 → 11 | **0.0194** | PASS |
 
 **一句话：** 语义编辑与像素证明两条产品线均已用同一套验证器证明可用。
@@ -97,7 +97,7 @@
 发布归档内容：
 
 ```text
-workspace/archive/v1.0.0-mvp/
+workspace/archive/v1.0.0-mvp-final/
   docx/{editable,positioned,hybrid,fidelity}.docx
   validation/*.validation_report.{json,md}
   validation/preflight.json

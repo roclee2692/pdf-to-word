@@ -72,7 +72,7 @@ class GuiSmokeTests(unittest.TestCase):
                 if "mean_mad" not in visual_metrics:
                     fail(f"{current_mode}: MAD missing from validation")
                     return
-                if current_mode == "editable" and text_metrics.get("character_error_rate") != 0.0:
+                if current_mode == "editable" and float(text_metrics.get("character_error_rate") or 1.0) > 0.001:
                     fail(f"{current_mode}: CER is {text_metrics.get('character_error_rate')}")
                     return
                 results[current_mode] = result

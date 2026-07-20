@@ -1,10 +1,30 @@
 import unittest
+from pathlib import Path
 
 from pdf2word.parsers.native_parser import NativeTextParser
 from pdf2word.pdf_backends import PdfGraphicObject, PdfTableObject, PdfTextObject
 
 
 class NativeParserGraphicTests(unittest.TestCase):
+    def test_attention_math_and_horizontal_rule_table_are_structured(self):
+        from pdf2word.parsers.native_parser import NativeTextParser
+        from pdf2word.pdf_backends import PdfPlumberBackend
+
+        pdf = Path(__file__).parents[2] / "NIPS-2017-attention-is-all-you-need-Paper.pdf"
+        with PdfPlumberBackend(pdf) as backend:
+            ir = NativeTextParser().parse(backend, [7, 8])
+
+        formula = next(element for element in ir.pages[0].elements if element.type == "formula")
+        self.assertIn("d^", formula.text)
+        self.assertIn("model", formula.text)
+        self.assertTrue(any(run.superscript for run in formula.runs))
+        self.assertTrue(any(run.subscript for run in formula.runs))
+        table = next(element for element in ir.pages[1].elements if element.type == "table")
+        self.assertEqual((table.table.row_count, table.table.column_count), (12, 5))
+        self.assertEqual(table.table.rows[0][1].col_span, 2)
+        self.assertIn("3.3", table.table.rows[-2][3].text)
+        self.assertIn("10^18", table.table.rows[-2][3].text)
+
     def test_builds_omml_for_simple_superscript(self):
         omml = NativeTextParser()._formula_to_omml("x^2")
 

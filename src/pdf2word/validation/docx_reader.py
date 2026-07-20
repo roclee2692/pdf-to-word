@@ -69,10 +69,19 @@ def read_docx_snapshot(path: str | Path) -> DocxSnapshot:
             DocxTableSnapshot(row_count=len(rows), column_count=max_cols, cells=rows)
         )
         snapshot.table_count += 1
-        for row in rows:
-            for cell in row:
-                if cell:
-                    body_chunks.append(cell)
+        for row_obj, row in zip(block.rows, rows):
+            # python-docx exposes a horizontally merged cell once per grid
+            # slot. Keep the raw row shape for structure checks, but count
+            # each underlying XML cell only once in document text, otherwise
+            # merged headers inflate CER with duplicate labels.
+            seen_cells: set[int] = set()
+            for cell_obj, cell_text in zip(row_obj.cells, row):
+                cell_key = id(cell_obj._tc)
+                if cell_key in seen_cells:
+                    continue
+                seen_cells.add(cell_key)
+                if cell_text:
+                    body_chunks.append(cell_text)
 
     image_count = 0
     for rel in document.part.rels.values():
