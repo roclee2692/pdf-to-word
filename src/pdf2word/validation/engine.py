@@ -6,7 +6,8 @@ from pathlib import Path
 
 from pdf2word.domain import DocumentIR
 from pdf2word.validation.docx_reader import read_docx_snapshot
-from pdf2word.validation.models import LayerSummary, ValidationReport
+from pdf2word.validation.drawing_text import validate_drawing_text
+from pdf2word.validation.models import LayerSummary, ValidationIssue, ValidationReport
 from pdf2word.validation.structure import validate_images, validate_structure, validate_tables
 from pdf2word.validation.text import validate_text
 from pdf2word.validation.visual import validate_visual
@@ -16,6 +17,9 @@ from pdf2word.validation.visual import validate_visual
 class ValidationOptions:
     visual: bool = True
     write_report: bool = True
+    # When True: visual warn upgrades toward fail pressure; always run drawing-text checks;
+    # and re-enable flow CER where possible.
+    strict: bool = False
 
 
 class ValidationEngine:
@@ -42,24 +46,27 @@ class ValidationEngine:
         )
 
         structure_summary, structure_issues = validate_structure(document_ir, docx)
+        text_issues: list[ValidationIssue] = []
+        table_issues: list[ValidationIssue] = []
+
         if non_flow_layout:
-            # Snapshot and positioned layouts keep the edit surface inside
-            # drawing objects; python-docx's body iterator cannot inspect it.
-            text_summary = LayerSummary(
-                status="skipped",
-                issue_count=0,
-                metrics={"reason": f"{mode}_layout_mode"},
-                reason=f"{mode} layout keeps text in native positioned drawing objects",
-            )
-            text_issues = []
+            # Snapshot/positioned layouts keep content in drawing objects that
+            # python-docx body iteration cannot fully inspect.
+            if mode in {"positioned", "hybrid"} or opts.strict:
+                text_summary, text_issues = validate_drawing_text(document_ir, docx_path, mode=mode)
+            else:
+                text_summary = LayerSummary(
+                    status="skipped",
+                    issue_count=0,
+                    metrics={"reason": f"{mode}_layout_mode"},
+                    reason=f"{mode} layout keeps text in native positioned drawing objects",
+                )
             table_summary = LayerSummary(
                 status="skipped",
                 issue_count=0,
                 metrics={"reason": f"{mode}_layout_mode"},
                 reason=f"{mode} layout keeps tables inside positioned drawing objects",
             )
-            table_issues = []
-            # Footer/header warnings are noise when the snapshot carries page chrome.
             structure_issues = [
                 issue
                 for issue in structure_issues
@@ -77,13 +84,14 @@ class ValidationEngine:
                     ),
                 }
             )
+            if opts.strict and mode == "editable":
+                # unreachable for non_flow, kept for clarity
+                pass
         else:
             text_summary, text_issues = validate_text(document_ir, docx)
             table_summary, table_issues = validate_tables(document_ir, docx)
 
         image_summary, image_issues = validate_images(document_ir, docx)
-        # Continuous editable flow targets ≈ source page count (tolerance 1).
-        # Fidelity requires exact page alignment.
         page_tol = 0 if non_flow_layout else 1
         visual_summary, visual_issues = validate_visual(
             document_ir,
@@ -96,15 +104,29 @@ class ValidationEngine:
         )
 
         issues = structure_issues + text_issues + table_issues + image_issues + visual_issues
-        # Visual skip must not fail the job; only hard errors fail.
+
         hard_fail_layers = {
             issue.layer
             for issue in issues
             if issue.severity == "error" and issue.layer != "visual"
         }
-        # Visual errors only fail when visual layer actually ran.
         if visual_summary.status == "fail":
             hard_fail_layers.add("visual")
+        # Strict mode: elevated visual MAD warnings also fail the gate.
+        if opts.strict and visual_summary.status == "warn":
+            hard_fail_layers.add("visual")
+            visual_issues = list(visual_issues) + [
+                ValidationIssue(
+                    layer="visual",
+                    severity="error",
+                    code="strict_visual_warn",
+                    message="strict mode treats visual warnings as failures",
+                )
+            ]
+            issues = structure_issues + text_issues + table_issues + image_issues + visual_issues
+            visual_summary = visual_summary.model_copy(
+                update={"status": "fail", "issue_count": visual_summary.issue_count + 1}
+            )
 
         report = ValidationReport(
             mode=mode,
@@ -120,15 +142,18 @@ class ValidationEngine:
         if opts.write_report:
             path = report_dir / "validation_report.json"
             path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-            self._write_markdown_summary(report, report_dir / "validation_report.md")
+            self._write_markdown_summary(report, report_dir / "validation_report.md", strict=opts.strict)
         return report
 
-    def _write_markdown_summary(self, report: ValidationReport, path: Path) -> None:
+    def _write_markdown_summary(
+        self, report: ValidationReport, path: Path, *, strict: bool = False
+    ) -> None:
         lines = [
             "# Validation Report",
             "",
             f"- mode: `{report.mode}`",
             f"- passed: **{report.passed}**",
+            f"- strict: **{strict}**",
             f"- issues: {len(report.issues)}",
             "",
             "| Layer | Status | Issues |",
@@ -156,5 +181,7 @@ class ValidationEngine:
             lines.extend(["", "## Issues", ""])
             for issue in report.issues:
                 page = f" page={issue.page}" if issue.page is not None else ""
-                lines.append(f"- **{issue.severity}** `{issue.layer}/{issue.code}`{page}: {issue.message}")
+                lines.append(
+                    f"- **{issue.severity}** `{issue.layer}/{issue.code}`{page}: {issue.message}"
+                )
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -25,13 +25,24 @@ class ParserRouter:
         return "mineru"
 
     def choose_available_parser(self, preflight: PagePreflight) -> str:
-        """Return an executable parser, falling back only when semantics permit it."""
+        """Return an executable parser.
+
+        Always prefers the ideal parser when it is installed and enabled.
+        If the preferred engine is unavailable, degrade to ``native`` so the
+        convert path never crashes on scanned/complex pages (quality may be low).
+        """
         preferred = self.choose_parser(preflight)
-        if preferred in self.available_parsers():
+        available = self.available_parsers()
+        if preferred in available:
             return preferred
-        if preflight.has_text_layer and "native" in self.available_parsers():
+        if "native" in available:
             return "native"
+        if available:
+            return sorted(available)[0]
         return preferred
+
+    def is_degraded(self, preflight: PagePreflight) -> bool:
+        return self.choose_parser(preflight) != self.choose_available_parser(preflight)
 
     def available_parsers(self) -> set[str]:
         if self._available_parsers is not None:
@@ -40,7 +51,14 @@ class ParserRouter:
 
     def availability_report(self) -> dict[str, bool]:
         available = self.available_parsers()
-        return {"native": "native" in available, **{name: name in available for name in ("docling", "mineru", "paddleocr")}}
+        return {
+            "native": "native" in available,
+            **{name: name in available for name in ("docling", "mineru", "paddleocr")},
+        }
 
     def resource_report(self) -> dict[str, dict[str, object]]:
         return resource_report()
+
+    def external_ocr_available(self) -> bool:
+        available = self.available_parsers()
+        return bool(available & {"mineru", "paddleocr", "docling"})

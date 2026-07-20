@@ -70,6 +70,19 @@ class PreflightSignalTests(unittest.TestCase):
         )
         self.assertEqual(route, "mineru")
 
+    def test_unavailable_ocr_falls_back_to_native_without_crash(self):
+        router = ParserRouter(available_parsers={"native"})
+        preflight = PagePreflight(
+            page_no=1,
+            has_text_layer=False,
+            word_count=0,
+            layout_complexity="high",
+            image_coverage=0.9,
+        )
+        self.assertEqual(router.choose_parser(preflight), "mineru")
+        self.assertEqual(router.choose_available_parser(preflight), "native")
+        self.assertTrue(router.is_degraded(preflight))
+
     def test_formula_or_multicolumn_routes_to_docling(self):
         route = ParserRouter().choose_parser(
             PagePreflight(

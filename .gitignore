@@ -25,6 +25,9 @@ pdf2word-*-package.zip
 # Secrets / machine-local env (keep .env.example)
 .env
 
+# Launcher / runtime logs
+logs/
+
 # Tooling / OS
 .DS_Store
 .idea/

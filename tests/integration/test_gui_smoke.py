@@ -41,7 +41,11 @@ class GuiSmokeTests(unittest.TestCase):
                 QTimer.singleShot(50, QApplication.instance().quit)
                 return
             mode = modes[index]
-            window._mode_combo.setCurrentText(mode)
+            mode_index = window._mode_combo.findData(mode)
+            if mode_index < 0:
+                # Fallback for plain-text combo items
+                mode_index = window._mode_combo.findText(mode)
+            window._mode_combo.setCurrentIndex(max(0, mode_index))
             output = output_dir / f"{mode}.docx"
             window._output_edit.setText(str(output))
             window._convert_button.click()

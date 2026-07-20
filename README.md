@@ -1,6 +1,6 @@
 # PDF-to-Word
 
-**一句话：** 本地 PDF 转可编辑 Word（`.docx`），支持 **4 种模式**，兼顾**可编辑性**与**高保真**像素还原。
+**一句话：** 本地 PDF 转可编辑 Word（`.docx`），支持 **4 种模式**，兼顾**可编辑性**与**像素级校对**。
 
 版本：`v1.0.0-mvp` · Python ≥ 3.11 · 许可 Apache-2.0
 
@@ -20,8 +20,9 @@ cd PDF-to-Word
 
 ```bash
 brew install --cask libreoffice
-# 默认路径（已写入 start.sh）：
-# /Applications/LibreOffice.app/Contents/MacOS/soffice
+# 默认路径（已写入 start.sh / .env.example）：
+# PDF2WORD_SOFFICE=/Applications/LibreOffice.app/Contents/MacOS/soffice
+cp -n .env.example .env   # 可按需修改
 ```
 
 ### 2. 一键启动 GUI
@@ -30,28 +31,34 @@ brew install --cask libreoffice
 ./start.sh
 ```
 
-或在 Finder 中双击 `start.sh`（首次若被拦截：右键 → 打开）。
+或在 Finder 中双击 `start.sh`（首次若被拦截：右键 → 打开）。  
+若启动失败：查看 `logs/start.log`（双击时错误也会写在这里，macOS 会弹窗提示）。
 
-界面：拖入 PDF → 选模式 → Preflight / Convert → Open output。
+界面：拖入 PDF → 选模式 → Preflight / Convert → Open output。  
+**默认模式：`positioned`（可编辑交付）。**
 
 ### 3. CLI 示例
 
 ```bash
 export PDF2WORD_SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"
-PYTHONPATH=src .venv/bin/python -m pdf2word convert \
-  "NIPS-2017-attention-is-all-you-need-Paper.pdf" \
-  --pages 1-11 \
-  --mode positioned \
-  --out workspace/jobs/demo/result.docx \
-  --dump-ir
-```
 
-也可用：`./scripts/cli.sh convert input.pdf --pages 1-3 --mode editable --out out.docx`
+# 默认：全部页 + positioned
+./scripts/cli.sh convert "NIPS-2017-attention-is-all-you-need-Paper.pdf" \
+  --out workspace/jobs/demo/result.docx --dump-ir
+
+# 指定页 / 模式 / 严格视觉门禁
+./scripts/cli.sh convert input.pdf --pages 1-11 --mode editable \
+  --strict-visual --out out.docx
+
+# 批量目录
+./scripts/cli.sh batch ./input_pdfs/ --out ./output_docs/ --mode positioned
+```
 
 | 常用参数 | 说明 |
 | --- | --- |
-| `--mode` | `editable` / `positioned` / `hybrid` / `fidelity` |
-| `--pages` | 页码，如 `1` 或 `1-11` 或 `1,3-5` |
+| `--mode` | `positioned`（默认）/ `editable` / `hybrid` / `fidelity` |
+| `--pages` | 可选；如 `1`、`1-11`、`1,3-5`；**省略 = 全文** |
+| `--strict-visual` | 更严：DrawingML 文本非空检查 + 视觉 warn 视为失败 |
 | `--dump-ir` | 导出中间 IR JSON |
 | `--no-validate` | 跳过校验 |
 | `--no-visual-diff` | 不做 LibreOffice 视觉对比 |
@@ -60,52 +67,55 @@ PYTHONPATH=src .venv/bin/python -m pdf2word convert \
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
-# 期望：38 OK（1 skipped）
 ```
 
 ---
 
-## 核心模式说明
+## 核心模式说明（请先读）
 
-| 模式 | 区别 | 适用场景 |
-| --- | --- | --- |
-| **`editable`** | 流式段落、真 Word 表格，可正常改字重排 | 复制编辑、长文修改 |
-| **`positioned`** | DrawingML 文本框 / 浮动表 / 锚定图，按 PDF 坐标放 | 既要可编辑对象，又要版式接近原稿 |
-| **`hybrid`** | 页图垫底 + 包内可编辑层（文字默认 vanish） | 像素优先，仍保留对象 |
-| **`fidelity`** | 以页图快照为主 | 外观证明 / 高保真对照 |
+| 模式 | 类型 | 区别 | 适用场景 |
+| --- | --- | --- | --- |
+| **`positioned`** | **可编辑交付（默认）** | DrawingML 文本框 / 浮动表 / 锚定图 | 原生对象 + 版式接近原稿 |
+| **`editable`** | **可编辑交付** | 流式段落、真 Word 表格 | 复制改写、长文重排 |
+| **`hybrid`** | **像素校对工具** | 页图垫底 + 可编辑层（vanish） | 像素优先对照，**不是**主交付 |
+| **`fidelity`** | **像素证明工具** | 页图快照为主 | 外观证明，**不是**主交付 |
 
-- **可编辑方案：** `editable`、`positioned`  
-- **高保真方案：** `hybrid`、`fidelity`  
+- **交付请用：** `positioned` 或 `editable`（原生 Word 对象）。  
+- **`hybrid` / `fidelity`：** 仅作像素级证明 / 临时预览；含页图快照，**不符合「禁止图片占位」的终态编辑标准**。  
+- **公式：** 简单结构化公式可写 OMML；**复杂公式会回退为可编辑文本**，不是完整原生公式对象。
 
 ---
 
 ## 验收亮点（Attention 论文 · 全 11 页）
 
 样本：`NIPS-2017-attention-is-all-you-need-Paper.pdf`  
-证据目录：`workspace/archive/v1.0.0-mvp/`
+证据：`workspace/archive/v1.0.0-mvp/`
 
 | 指标 | 结果 |
 | --- | --- |
 | 页数 | **11 → 11**（四种模式） |
 | 文本 CER（`editable`） | **0.0** |
-| `positioned` mean MAD | **≈ 0.049**（门禁 ≤ 0.055；发布跑 0.0492 / GUI 烟测 0.0493） |
-| `hybrid` / `fidelity` mean MAD | **0.0198 / 0.0194** |
-| `editable` mean MAD | **≈ 0.072**（语义流式，允许视觉 warn） |
-| 单测 | **38 OK**（1 skipped） |
+| `positioned` mean MAD | **≈ 0.049**（≤ 0.055） |
+| `hybrid` / `fidelity` mean MAD | **0.0198 / 0.0194**（像素工具） |
+| 单测 | 见 `unittest` 当前结果 |
+
+---
+
+## 扫描件 / 无文本层
+
+- 预检会标记无文本层页面；外置 OCR（MinerU / PaddleOCR / Docling）不可用时 **不再崩溃**。  
+- 会 **降级 native** 并打印 `WARNING`（质量有限）。  
+- 需要 OCR 时：安装运行时后设 `PDF2WORD_ENABLE_EXTERNAL_PARSERS=1`。
 
 ---
 
 ## 已知限制
 
-当前 MVP **尚未**覆盖（避免预期不符）：
-
-- 复杂嵌套公式的完整 OMML 还原（现为简单结构化 + 文本 fallback）  
-- 跨页表格的真实拆分与连续表头重建  
-- 扫描件 / 低质量 PDF 的 OCR 主路径（PaddleOCR 等运行时未齐）  
-- Agent 自动修复环  
-- pure `positioned` 个别页残差仍可继续压（如第 2 页）  
-
-原生文本层 PDF 为主路径；外置解析默认关闭（`PDF2WORD_ENABLE_EXTERNAL_PARSERS=1` 才尝试）。
+- 复杂嵌套公式 OMML 未全覆盖（简单 OMML + 文本 fallback）  
+- 跨页表格真实拆分、嵌套表未闭环  
+- 扫描件 OCR 运行时默认未齐（仅有安全降级，不是高质量识别）  
+- 封面制表位引导线、Agent 修复环未做  
+- `positioned` 个别页残差仍可继续压  
 
 ---
 
@@ -113,32 +123,17 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 
 ```text
 src/pdf2word/     # 主程序
-tests/            # 单测 / 集成测
-docs/             # 内部施工日志与质量报告（见下）
-start.sh          # 一键 GUI
+tests/
+docs/             # 施工日志 / 质量报告
+start.sh          # 一键 GUI（读 .env，写 logs/start.log）
 scripts/setup.sh  # 环境安装
-workspace/archive/v1.0.0-mvp/   # MVP 最终产物（docx + 校验 + 日志）
+scripts/cli.sh    # CLI 包装
+workspace/archive/v1.0.0-mvp/
 ```
 
-## 内部文档（施工日志，保留复盘用）
-
-| 文件 | 内容 |
+| 文档 | 内容 |
 | --- | --- |
-| [docs/MVP.md](docs/MVP.md) | 已实现范围 / 下一步 |
-| [docs/QUALITY_REPORT.md](docs/QUALITY_REPORT.md) | MAD、页数迭代证据 |
-| [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md) | 完整交付说明 |
-| [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md) | LibreOffice 安装 |
-
----
-
-## 备份与版本
-
-- Git 标签：`v1.0.0-mvp`  
-- 本地验收包：`workspace/archive/v1.0.0-mvp/`  
-- 压缩备份（与代码仓库分开保存）：`pdf2word-v1.0.0-mvp-archive.zip`  
-
-```bash
-# 推远程（配置 origin 后）
-git push -u origin main
-git push origin v1.0.0-mvp
-```
+| [docs/MVP.md](docs/MVP.md) | 已实现 / 下一步 |
+| [docs/QUALITY_REPORT.md](docs/QUALITY_REPORT.md) | MAD 证据 |
+| [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md) | 交付说明 |
+| [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md) | LibreOffice |

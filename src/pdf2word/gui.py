@@ -141,10 +141,19 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             source_row.addWidget(source_edit, 1)
             source_row.addWidget(source_button)
 
-            pages_edit = QLineEdit("1")
+            pages_edit = QLineEdit("")
             pages_edit.setPlaceholderText("Blank = all pages; example: 1,3-5")
             mode_combo = QComboBox()
-            mode_combo.addItems(["editable", "positioned", "hybrid", "fidelity"])
+            # Deliverable defaults first; hybrid/fidelity are pixel-proof tools only.
+            mode_combo.addItem("positioned — 可编辑交付 (DrawingML)", "positioned")
+            mode_combo.addItem("editable — 流式可编辑", "editable")
+            mode_combo.addItem("hybrid — 像素校对(非主交付)", "hybrid")
+            mode_combo.addItem("fidelity — 像素证明(非主交付)", "fidelity")
+            mode_combo.setCurrentIndex(0)
+            mode_combo.setToolTip(
+                "positioned/editable: native editable objects.\n"
+                "hybrid/fidelity: pixel-proof tools (page snapshots), not primary editable deliverables."
+            )
 
             output_edit = QLineEdit()
             output_edit.setPlaceholderText("Optional DOCX path")
@@ -227,7 +236,10 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
                 return None
             output_text = self._output_edit.text().strip()
             output = Path(output_text).expanduser() if output_text else pdf_path.with_suffix(".docx")
-            return pdf_path, pages, output, self._mode_combo.currentText()
+            mode = self._mode_combo.currentData() or self._mode_combo.currentText()
+            if isinstance(mode, str) and "—" in mode:
+                mode = mode.split("—", 1)[0].strip()
+            return pdf_path, pages, output, str(mode)
 
         def _set_busy(self, busy: bool, message: str) -> None:
             self._preflight_button.setEnabled(not busy)
@@ -253,6 +265,26 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
         def _preflight_done(self, payload: object) -> None:
             self._set_busy(False, "Preflight complete")
             data = payload if isinstance(payload, dict) else {}
+            pages = data.get("pages") or []
+            no_text = [p.get("page_no") for p in pages if not p.get("has_text_layer")]
+            degraded = [
+                p for p in pages if p.get("preferred_parser") != p.get("selected_parser")
+            ]
+            available = data.get("available_parsers") or {}
+            external = any(available.get(name) for name in ("mineru", "paddleocr", "docling"))
+            if no_text and not external:
+                warn = (
+                    "WARNING: scanned / no-text-layer page(s) "
+                    f"{no_text[:12]} and external OCR parsers are unavailable. "
+                    "Convert will fall back to native (limited quality)."
+                )
+                self._log.appendPlainText(warn)
+                QMessageBox.warning(self, "Scanned PDF risk", warn)
+            if degraded:
+                self._log.appendPlainText(
+                    f"WARNING: {len(degraded)} page(s) will use a degraded parser "
+                    f"(preferred → selected mismatch)."
+                )
             self._log.appendPlainText(json.dumps(data, ensure_ascii=False, indent=2))
 
         def _run_convert(self) -> None:

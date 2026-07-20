@@ -798,29 +798,13 @@ class EditableDocxRenderer:
             self._apply_run_style(run, element, None, point_factory, qn, font_scale)
 
     def _apply_absolute_frame(self, paragraph, page: PageIR, element: DocumentElement, qn) -> None:
-        """Position a paragraph with OOXML framePr using source page coordinates."""
-        from docx.oxml import OxmlElement
+        """Absolute framing is intentionally disabled.
 
-        left_pt = page.width_pt * element.bbox.left
-        top_pt = page.height_pt * element.bbox.top
-        width_pt = max(24.0, page.width_pt * (element.bbox.right - element.bbox.left))
-        height_pt = max(10.0, page.height_pt * (element.bbox.bottom - element.bbox.top))
-        p_pr = paragraph._p.get_or_add_pPr()
-        # Remove prior frame if re-rendering.
-        old = p_pr.first_child_found_in("w:framePr")
-        if old is not None:
-            p_pr.remove(old)
-        frame = OxmlElement("w:framePr")
-        frame.set(qn("w:hAnchor"), "page")
-        frame.set(qn("w:vAnchor"), "page")
-        frame.set(qn("w:x"), str(int(round(left_pt * 20))))
-        frame.set(qn("w:y"), str(int(round(top_pt * 20))))
-        frame.set(qn("w:w"), str(int(round(width_pt * 20))))
-        frame.set(qn("w:h"), str(int(round(height_pt * 20))))
-        frame.set(qn("w:wrap"), "notBeside")
-        frame.set(qn("w:vSpace"), "0")
-        frame.set(qn("w:hSpace"), "0")
-        p_pr.insert(0, frame)
+        Historical ``w:framePr`` anchors collapsed page counts under LibreOffice.
+        Coordinate placement for non-flow layouts belongs in DrawingML
+        (``FidelityDocxRenderer`` / ``positioned`` mode), not framePr.
+        """
+        return
 
     def _render_formula_fallback(
         self,
