@@ -2,7 +2,8 @@
 
 The first implementation deliberately avoids Agent repair.
 
-**Release:** `v1.0.0-mvp` (2026-07-20)
+**Release:** `v1.0.0-mvp` (2026-07-20)  
+**Full delivery write-up:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 ## Implemented
 

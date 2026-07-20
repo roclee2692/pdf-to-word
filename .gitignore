@@ -9,11 +9,16 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
-dist/
 build/
 *.egg-info/
 .eggs/
 *.egg
+
+# Local packaging output (regenerate with scripts / tar)
+dist/
+
+# Secrets / machine-local env (keep .env.example)
+.env
 
 # Tooling / OS
 .DS_Store

@@ -2,7 +2,8 @@
 
 Baseline sample: `NIPS-2017-attention-is-all-you-need-Paper.pdf`.
 
-**Release `v1.0.0-mvp` (2026-07-20)** — full 11-page CLI E2E with LibreOffice visual loop.
+**Release `v1.0.0-mvp` (2026-07-20)** — full 11-page CLI E2E with LibreOffice visual loop.  
+**Stakeholder summary:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 | Mode | Job | Pages | mean MAD | Overall |
 | --- | --- | ---: | ---: | --- |
