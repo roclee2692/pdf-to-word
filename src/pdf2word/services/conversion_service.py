@@ -94,15 +94,14 @@ class ConversionService:
             no_text_pages = [p.page_no for p in preflight if not p.has_text_layer]
             if no_text_pages and not router.external_ocr_available():
                 msg = (
-                    "Warning: page(s) without a text layer detected "
+                    "page(s) without a text layer detected "
                     f"({no_text_pages[:12]}{'…' if len(no_text_pages) > 12 else ''}) and "
                     "external OCR parsers (MinerU/PaddleOCR/Docling) are unavailable. "
                     "Falling back to native parser — output quality will be limited for scanned pages. "
                     "Install OCR runtimes and set PDF2WORD_ENABLE_EXTERNAL_PARSERS=1 for better results."
                 )
                 convert_warnings.append(msg)
-                print(msg)
-                warnings.warn(msg, UserWarning, stacklevel=2)
+                # Single surface path: CLI prints convert_warnings; avoid triple-spam.
 
             parser_names = {page["selected_parser"] for page in page_routes}
             executable = {name for name in parser_names if name in available}
