@@ -1,0 +1,44 @@
+{
+  "release": "v1.0.2-mode-specific-rendering",
+  "sample": "NIPS-2017-attention-is-all-you-need-Paper.pdf",
+  "source_pages": 11,
+  "tests": {
+    "unittest": 46,
+    "skipped": 1,
+    "gui_smoke": "passed"
+  },
+  "modes": {
+    "editable": {
+      "output": "docx/editable.docx",
+      "job": "workspace/jobs/20260720_133328_6ffb325e",
+      "rendered_pages": 11,
+      "mean_mad": 0.0737,
+      "character_error_rate": 0.0022,
+      "digit_error_rate": 0.0,
+      "status": "pass"
+    },
+    "positioned": {
+      "output": "docx/positioned.docx",
+      "job": "workspace/jobs/20260720_131939_574c2975",
+      "rendered_pages": 11,
+      "mean_mad": 0.0495,
+      "status": "pass"
+    },
+    "hybrid": {
+      "output": "docx/hybrid.docx",
+      "job": "workspace/jobs/20260720_131943_8c79e1f5",
+      "rendered_pages": 11,
+      "mean_mad": 0.0203,
+      "status": "pass"
+    },
+    "fidelity": {
+      "output": "docx/fidelity.docx",
+      "job": "workspace/jobs/20260720_132545_5b279657",
+      "rendered_pages": 11,
+      "mean_mad": 0.0197,
+      "status": "pass"
+    }
+  },
+  "table_contract": "editable/positioned/hybrid use full native cell grids; fidelity adds precise vertical DrawingML separators over the source snapshot",
+  "formula_contract": "editable preserves editable runs and structured OMML where stable; positioned/hybrid/fidelity use source-coordinate or snapshot proof with searchable fallback"
+}

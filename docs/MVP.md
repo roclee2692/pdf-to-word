@@ -2,7 +2,7 @@
 
 The first implementation deliberately avoids Agent repair.
 
-**Release:** `v1.0.0-mvp` (2026-07-20)  
+**Release:** `v1.0.2-mode-specific-rendering` (2026-07-20)
 **Full delivery write-up:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 ## Implemented
@@ -15,18 +15,20 @@ The first implementation deliberately avoids Agent repair.
 - Capability-aware preflight + router; optional adapters fall back to native.
 - `ValidationEngine`: structure / text (CER) / table / image / visual (LibreOffice MAD + page count).
 - CLI: `pdf2word convert` with four modes; optional `pdf2word gui` (PySide6).
-- Local job workspace + final release archive under `workspace/archive/v1.0.0-mvp-final/`.
+- Local job workspace + final release archive under `workspace/archive/v1.0.2-mode-specific-rendering/`.
 
 ## Acceptance snapshot (Attention, 11 pages)
 
 | Mode | Pages | mean MAD | Notes |
 | --- | ---: | ---: | --- |
-| `editable` | 11 → 11 | 0.0734 | CER 0.0002; visual warn on residual pages |
-| `positioned` | 11 → 11 | 0.0492 | ≤ 0.055 gate |
-| `hybrid` | 11 → 11 | 0.0200 | snapshot behind + vanish layer |
-| `fidelity` | 11 → 11 | 0.0194 | snapshot proof |
+| `editable` | 11 → 11 | 0.0737 | CER 0.0022; native full-grid tables; visual warn on residual pages |
+| `positioned` | 11 → 11 | 0.0495 | ≤ 0.055 gate; native full-grid tables |
+| `hybrid` | 11 → 11 | 0.0203 | snapshot behind + hidden layer + visible table grid |
+| `fidelity` | 11 → 11 | 0.0197 | snapshot proof + vertical table separators |
 
-Unit tests: **44 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
+Unit tests: **46 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
+
+The mode contract is intentional: `editable` is the text-editing output, `positioned` is the native-object layout output, `hybrid` is the visual-review compromise, and `fidelity` is the snapshot archive. Table 2 and Table 3 use full native grids in the editable modes; fidelity adds only precise vertical separator lines over the source page snapshot.
 
 ## Next Engineering Steps
 

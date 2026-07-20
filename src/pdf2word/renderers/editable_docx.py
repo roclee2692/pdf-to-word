@@ -857,28 +857,9 @@ class EditableDocxRenderer:
         absolute_frame: bool = False,
         page: PageIR | None = None,
     ) -> None:
-        # A PDF formula may have a lossy text layer even when its vector paint
-        # is perfect (fractions and radicals are the common case). Keep the
-        # source crop as the visible proof and retain hidden editable text for
-        # search/copy and downstream repair.
-        if (
-            page is not None
-            and element.formula
-            and element.formula.image_path
-            and Path(element.formula.image_path).exists()
-            and not absolute_frame
-        ):
-            paragraph = doc.add_paragraph()
-            if page_break_before:
-                paragraph.paragraph_format.page_break_before = True
-            self._apply_paragraph_style(paragraph, element, geometry, alignment_enum, line_spacing_enum, point_factory)
-            width = max(2.0, page.width_pt * (element.bbox.right - element.bbox.left) + 4.0)
-            height = max(2.0, page.height_pt * (element.bbox.bottom - element.bbox.top) + 4.0)
-            picture_run = paragraph.add_run()
-            picture_run.add_picture(str(element.formula.image_path), width=point_factory(width), height=point_factory(height))
-            hidden = paragraph.add_run(element.text or element.formula.fallback_text or "")
-            hidden.font.hidden = True
-            return
+        # Editable mode deliberately uses the extracted run stream. The
+        # source crop is reserved for positioned/fidelity modes; inserting it
+        # here would make the formula look right but turn it into a picture.
         # Prefer compact italic text in editable flow. OMML display math expands line
         # boxes and is a major source of page inflation on STEM pages.
         if (
@@ -896,6 +877,12 @@ class EditableDocxRenderer:
             self._apply_paragraph_style(paragraph, element, geometry, alignment_enum, line_spacing_enum, point_factory)
             try:
                 paragraph._p.append(parse_xml(element.formula.omml_xml))
+                fallback_text = (element.formula.fallback_text or element.text or "").strip()
+                if fallback_text:
+                    # Keep a searchable/copyable plain-text representation in
+                    # the same paragraph without painting it twice.
+                    fallback_run = paragraph.add_run(fallback_text)
+                    fallback_run.font.hidden = True
                 return
             except (ValueError, TypeError):
                 pass
@@ -995,7 +982,10 @@ class EditableDocxRenderer:
         table = doc.add_table(rows=element.table.row_count, cols=element.table.column_count)
         table.alignment = table_alignment.LEFT
         table.autofit = False
-        table.style = "Table Grid" if element.table.has_borders else None
+        # A Word table must remain readable even when the PDF only drew
+        # horizontal rules. Explicit cell borders below provide the stable
+        # editable grid for every native-table mode.
+        table.style = "Table Grid"
         column_widths = self._table_column_widths(page, element)
         self._set_table_geometry(table, column_widths, element, page, geometry, oxml_element, qn)
         repeat_header_rows = min(element.table.row_count, element.table.repeat_header_row_count)
@@ -1133,7 +1123,10 @@ class EditableDocxRenderer:
                 edge_element = oxml_element(f"w:{edge}")
                 borders.append(edge_element)
             if border is None:
-                edge_element.set(qn("w:val"), "nil")
+                edge_element.set(qn("w:val"), "single")
+                edge_element.set(qn("w:sz"), "4")
+                edge_element.set(qn("w:space"), "0")
+                edge_element.set(qn("w:color"), "808080")
                 continue
             edge_element.set(qn("w:val"), border.val)
             edge_element.set(qn("w:sz"), str(max(2, int(round(border.width_pt * 8)))))

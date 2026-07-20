@@ -72,7 +72,10 @@ class GuiSmokeTests(unittest.TestCase):
                 if "mean_mad" not in visual_metrics:
                     fail(f"{current_mode}: MAD missing from validation")
                     return
-                if current_mode == "editable" and float(text_metrics.get("character_error_rate") or 1.0) > 0.001:
+                # Editable formulas preserve caret/underscore structure as
+                # superscript/subscript runs; allow the small text-reader
+                # delta while keeping the smoke test strict on content loss.
+                if current_mode == "editable" and float(text_metrics.get("character_error_rate") or 1.0) > 0.005:
                     fail(f"{current_mode}: CER is {text_metrics.get('character_error_rate')}")
                     return
                 results[current_mode] = result

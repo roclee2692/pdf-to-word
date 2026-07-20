@@ -59,6 +59,44 @@ class FidelityDocxRendererTests(unittest.TestCase):
             self.assertIn('behindDoc="1"', xml)
             self.assertNotIn("Editable fallback text", xml)
 
+    def test_snapshot_mode_adds_vertical_table_grid_overlay(self):
+        from PIL import Image
+        from docx import Document
+
+        with tempfile.TemporaryDirectory() as tmp:
+            background = Path(tmp) / "page.png"
+            Image.new("RGB", (612, 792), "white").save(background)
+            page = self._page(str(background))
+            page.elements.append(
+                DocumentElement(
+                    id="table_001",
+                    type="table",
+                    text="A\tB\n1\t2",
+                    bbox=BoundingBox(left=0.1, top=0.3, right=0.9, bottom=0.45),
+                    reading_order=2,
+                    table=TablePayload(
+                        row_count=2,
+                        column_count=2,
+                        rows=[
+                            [TableCellPayload(text="A"), TableCellPayload(text="B")],
+                            [TableCellPayload(text="1"), TableCellPayload(text="2")],
+                        ],
+                    ),
+                    provenance=Provenance(parser="test", source_page=1),
+                )
+            )
+            output = Path(tmp) / "snapshot-table.docx"
+            FidelityDocxRenderer().render(
+                DocumentIR(document=DocumentMeta(page_count=1), pages=[page]),
+                output,
+                layout="fidelity",
+            )
+            doc = Document(output)
+            xml = doc.element.body.xml
+            self.assertIn("wp:anchor", xml)
+            self.assertEqual(len(doc.tables), 0)
+            self.assertEqual(xml.count("<wps:wsp"), 1)
+
     def test_hybrid_mode_keeps_snapshot_and_vanished_editable_text(self):
         from PIL import Image
         from docx import Document

@@ -2,18 +2,29 @@
 
 Baseline sample: `NIPS-2017-attention-is-all-you-need-Paper.pdf`.
 
-**Release `v1.0.0-mvp-final` (2026-07-20)** — full 11-page CLI E2E with LibreOffice visual loop.
+**Current release `v1.0.2-mode-specific-rendering` (2026-07-20)** — full 11-page CLI E2E with LibreOffice visual loop, formula fallback verification, and full table-grid verification.
 **Stakeholder summary:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 | Mode | Job | Pages | mean MAD | Overall |
 | --- | --- | ---: | ---: | --- |
-| **`editable`** | `workspace/archive/v1.0.0-mvp-final/` | **11 → 11** | **0.0734** | **PASS** (CER 0.0002; visual warn) |
-| **`positioned`** | `workspace/archive/v1.0.0-mvp-final/` | **11 → 11** | **0.0492** | **PASS** (≤0.055) |
-| **`hybrid`** | `workspace/archive/v1.0.0-mvp-final/` | **11 → 11** | **0.0200** | **PASS** |
-| **`fidelity`** | `workspace/archive/v1.0.0-mvp-final/` | **11 → 11** | **0.0194** | **PASS** |
+| **`editable`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0737** | **PASS** (CER 0.0022; visual warn) |
+| **`positioned`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0495** | **PASS** (≤0.055) |
+| **`hybrid`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0203** | **PASS** |
+| **`fidelity`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0197** | **PASS** |
 
-Release archive: `workspace/archive/v1.0.0-mvp-final/` (`docx/`, `validation/`, `validation_report.json`, `preflight/`, `ir/`).
-Unit tests: **44 OK** (1 skipped). GUI smoke archive: `workspace/archive/gui-smoke-20260720/`.
+Release archive: `workspace/archive/v1.0.2-mode-specific-rendering/` (`docx/`, `validation/`, `validation_report.json`, `preflight/`, `ir/`).
+Unit tests: **46 OK** (1 skipped). GUI smoke archive: `workspace/archive/gui-smoke-20260720/`.
+
+## Current Mode Contract
+
+| Mode | Primary contract | Formula policy | Table policy |
+| --- | --- | --- | --- |
+| `editable` | Text and object editing | Editable runs with superscript/subscript; simple OMML plus hidden text fallback; complex formulas remain text | Native editable Word table with full horizontal and vertical borders; repeatable header and no row splitting |
+| `positioned` | PDF-like placement with native objects | Source-coordinate formula crop plus hidden searchable text | Floating native Word table with fixed column geometry and full grid borders |
+| `hybrid` | Snapshot proof plus retained structure | Snapshot paints the formula; hidden editable layer remains in the DOCX | Native table grid remains visible over the snapshot |
+| `fidelity` | Snapshot proof | Snapshot paints formula/font/image/color | Snapshot keeps source horizontal rules; precise vertical DrawingML separators improve column readability without adding blank table rows |
+
+The four outputs are intentionally different. `editable` is the one to modify, `positioned` is the one to inspect and replace objects in place, `hybrid` is the compromise for visual review, and `fidelity` is the visual archive.
 
 Phase 4 / historical regression rows below are retained for audit.
 
@@ -44,8 +55,9 @@ Phase 4 / historical regression rows below are retained for audit.
 - `validation/preflight.json` records native availability, preferred/selected parser per page, and the clone/import status of MinerU, Docling, and PaddleOCR.
 - Post-render `ValidationEngine` writes `validation/validation_report.json` + `.md` for every conversion (disable with `--no-validate`).
 - Baseline page 1 and table-heavy pages: structure/text/table/image layers pass with document-order IR↔DOCX character error rate below `0.001`.
-- Final 11-page editable conversion structure/text/table/image layers pass (CER `0.0002`, digit error rate `0.0`); the page-count gate is `11 → 11`, with visual warnings on pages 2, 6, and 8.
-- Display formulas on the Attention sample retain source-coordinate raster crops for exact visible fractions/radicals, with hidden fallback text for search/copy; the learning-rate formula on page 7 was visually verified.
+- Current 11-page editable conversion structure/text/table/image layers pass (CER `0.0022`, digit error rate `0.0`); the page-count gate is `11 → 11`, with visual warnings on pages 2, 6, and 8.
+- Display formulas on the Attention sample retain source-coordinate raster crops in `positioned`, `hybrid`, and `fidelity`; the learning-rate formula on page 7 was visually verified. `editable` renders its formula run stream with superscript/subscript styling and keeps a hidden plain-text fallback for structured OMML.
+- Table 2 and Table 3 in all four delivered outputs have readable column separation: native modes use full cell grids, while `fidelity` overlays only precise vertical separators over the source snapshot.
 
 ## Partially Implemented
 
@@ -61,7 +73,18 @@ Phase 4 / historical regression rows below are retained for audit.
 
 LibreOffice is installed at `/Applications/LibreOffice.app/Contents/MacOS/soffice` and wired via `PDF2WORD_SOFFICE`.
 
-### Final acceptance rerun
+### Current final acceptance rerun (`v1.0.2-mode-specific-rendering`)
+
+| Mode | Final job | Source pages | Rendered pages | Delta | mean MAD | Text/structure gate |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `editable` | `workspace/jobs/20260720_133328_6ffb325e/` | 11 | **11** | 0 | **0.0737** | PASS; CER `0.0022`, table/image pass |
+| `positioned` | `workspace/jobs/20260720_131939_574c2975/` | 11 | **11** | 0 | **0.0495** | PASS |
+| `hybrid` | `workspace/jobs/20260720_131943_8c79e1f5/` | 11 | **11** | 0 | **0.0203** | PASS |
+| `fidelity` | `workspace/jobs/20260720_132545_5b279657/` | 11 | **11** | 0 | **0.0197** | PASS; vertical separator overlay |
+
+The reproducible copy of this current DOCX set and its reports is `workspace/archive/v1.0.2-mode-specific-rendering/`.
+
+### Historical final acceptance rerun
 
 | Mode | Final job | Source pages | Rendered pages | Delta | mean MAD | Text/structure gate |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -101,9 +124,9 @@ GUI smoke archive (earlier same day): `workspace/archive/gui-smoke-20260720/` (P
 
 Delivered modes:
 
-1. **`positioned`** — `wp:anchor` + `wps:txbx` **per-source-line** text boxes, floating tables (`tblpPr`), anchored images. Final mean MAD **0.0492** (≤0.055). IR `1.5` stores `line_bboxes` and source word-gap flags for pixel anchoring.
-2. **`hybrid`** — full-page snapshot with `behindDoc=1` + DrawingML editable layer using `w:vanish`. Final mean MAD **0.0200**.
-3. **`fidelity`** — snapshot-only paint via the same behind-doc anchor; final mean MAD **0.0194**.
+1. **`positioned`** — `wp:anchor` + `wps:txbx` **per-source-line** text boxes, floating tables (`tblpPr`), anchored images and full native table grids. Final mean MAD **0.0495** (≤0.055). IR `1.5` stores `line_bboxes` and source word-gap flags for pixel anchoring.
+2. **`hybrid`** — full-page snapshot with `behindDoc=1` + DrawingML editable layer using `w:vanish`; native table borders remain painted. Final mean MAD **0.0203**.
+3. **`fidelity`** — snapshot paint via the same behind-doc anchor plus precise vertical table separator DrawingML. Final mean MAD **0.0197**.
 
 Positioned MAD path (0.061 → 0.048):
 
@@ -145,10 +168,10 @@ Acceptance now:
 
 | Mode | Edit surface | Pixel authority | Typical MAD |
 | --- | --- | --- | ---: |
-| `editable` | Flow paragraphs | Reflow paint | ~0.07 |
-| `positioned` | DrawingML objects | DrawingML paint | **0.0492** |
-| `hybrid` | DrawingML (vanished) | Snapshot behind | **0.0200** |
-| `fidelity` | None / snapshot only | Snapshot | **0.0194** |
+| `editable` | Flow paragraphs + real tables | Reflow paint | **0.0737** |
+| `positioned` | DrawingML objects + real tables | DrawingML paint | **0.0495** |
+| `hybrid` | DrawingML (vanished) | Snapshot behind + visible table grid | **0.0203** |
+| `fidelity` | Snapshot + separator lines | Snapshot + vertical table separators | **0.0197** |
 
 ## Not Yet Implemented
 

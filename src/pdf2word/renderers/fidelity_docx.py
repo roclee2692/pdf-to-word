@@ -11,7 +11,7 @@ class FidelityDocxRenderer:
 
     layout:
       - positioned: native DrawingML text boxes / floating tables / anchored images
-      - fidelity: source-page snapshot only (pixel proof)
+      - fidelity: source-page snapshot plus precise vertical table separators (pixel proof)
       - hybrid: snapshot behind the document + DrawingML editable layer (vanished for paint)
     """
 
@@ -82,7 +82,15 @@ class FidelityDocxRenderer:
                     behind_doc=True,
                 )
             if layout == "fidelity" and has_snapshot:
-                # Pure pixel proof: snapshot is the only painted layer.
+                # Keep the source snapshot as the visual proof, but add
+                # precise vertical separators so every delivered mode has
+                # readable column boundaries even when the PDF only contains
+                # horizontal rules.
+                self._overlay_visible = False
+                for element in page.ordered_elements():
+                    if element.type == "table":
+                        self._append_table_grid_overlay(anchor, page, element, OxmlElement, qn)
+                self._overlay_visible = True
                 continue
 
             # positioned: always paint DrawingML. hybrid: emit editable objects but vanish text.
@@ -441,6 +449,41 @@ class FidelityDocxRenderer:
                 dense_single_line = element.table.column_count == 5 and element.table.row_count >= 10
                 row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY if dense_single_line else WD_ROW_HEIGHT_RULE.AT_LEAST
         self._set_floating_table_position(table, page, element, oxml_element, qn)
+
+    def _append_table_grid_overlay(self, anchor, page, element, oxml_element, qn) -> None:
+        """Add only vertical separators over a fidelity page snapshot.
+
+        The source PDF snapshot already paints its horizontal rules. A native
+        floating table is deliberately avoided here because LibreOffice may
+        expand its rows when it is layered over a full-page anchor image.
+        """
+        if element.table is None or element.table.column_count < 2:
+            return
+        widths = list(element.table.column_widths_pt)
+        if len(widths) != element.table.column_count or sum(widths) <= 0:
+            widths = [1.0] * element.table.column_count
+        total_width = sum(widths)
+        left = page.width_pt * element.bbox.left
+        top = page.height_pt * element.bbox.top
+        height = max(1.0, page.height_pt * (element.bbox.bottom - element.bbox.top))
+        table_width = max(1.0, page.width_pt * (element.bbox.right - element.bbox.left))
+        cumulative = 0.0
+        for column_index in range(1, element.table.column_count):
+            cumulative += widths[column_index - 1]
+            x = left + table_width * cumulative / total_width
+            content = oxml_element("w:txbxContent")
+            content.append(oxml_element("w:p"))
+            anchor._p.append(
+                self._drawing_textbox(
+                    page,
+                    element,
+                    content,
+                    oxml_element,
+                    qn,
+                    forced_box=(x, top, 0.5, height),
+                    fill_color="808080",
+                )
+            )
 
     def _set_floating_table_position(self, table, page, element, oxml_element, qn) -> None:
         """Use the native Word floating-table position instead of a table textbox."""

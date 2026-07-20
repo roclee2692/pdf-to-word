@@ -136,11 +136,56 @@ class EditableDocxRendererTests(unittest.TestCase):
             table_xml = doc.tables[0]._tbl.xml
             self.assertIn("w:tblHeader", table_xml)
             self.assertIn("w:cantSplit", table_xml)
+            self.assertIn('w:left w:val="single"', table_xml)
+            self.assertIn('w:right w:val="single"', table_xml)
             body_text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
             self.assertIn("Hello 世界", body_text)
             first_run_xml = doc.paragraphs[0]._p.xml
             self.assertIn('w:eastAsia="SimSun"', first_run_xml)
             self.assertIn("w:u", first_run_xml)
+
+    def test_complex_formula_with_source_crop_stays_editable_in_flow(self):
+        from docx import Document
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "formula.png"
+            Image.new("RGB", (120, 24), "white").save(image_path)
+            page = PageIR(
+                id="page_001",
+                page_number=1,
+                width_pt=612,
+                height_pt=792,
+                elements=[
+                    DocumentElement(
+                        id="formula",
+                        type="formula",
+                        text="lrate = d^−_model^0.5",
+                        runs=[
+                            TextRun(text="lrate = d", italic=True),
+                            TextRun(text="−_model^0.5", italic=True, superscript=True),
+                        ],
+                        formula=FormulaPayload(
+                            fallback_text="lrate = d^−_model^0.5",
+                            image_path=str(image_path),
+                        ),
+                        bbox=BoundingBox(left=0.2, top=0.2, right=0.8, bottom=0.24),
+                        reading_order=1,
+                        provenance=Provenance(parser="test", source_page=1),
+                    )
+                ],
+            )
+            output = Path(tmp) / "formula-flow.docx"
+            EditableDocxRenderer().render(
+                DocumentIR(document=DocumentMeta(page_count=1), pages=[page]),
+                output,
+                layout="continuous",
+            )
+            doc = Document(output)
+            xml = doc.element.body.xml
+            self.assertIn("lrate = d", doc.paragraphs[0].text)
+            self.assertIn("w:vertAlign", xml)
+            self.assertNotIn("pic:pic", xml)
 
     def test_keeps_page_specific_footers_in_separate_sections(self):
         from docx import Document

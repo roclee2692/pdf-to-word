@@ -3,9 +3,9 @@
 | 字段 | 内容 |
 | --- | --- |
 | 产品名 | PDF-to-Word（包名 `pdf2word-agent`） |
-| 版本 | **v1.0.0-mvp-final** |
+| 版本 | **v1.0.2-mode-specific-rendering** |
 | 交付日期 | 2026-07-20 |
-| Git 标签 | `v1.0.0-mvp-final`（本次修复完成后新增最终提交） |
+| Git 标签 | `v1.0.2-mode-specific-rendering` |
 | 基线样本 | `NIPS-2017-attention-is-all-you-need-Paper.pdf`（11 页） |
 | 许可 | Apache-2.0 |
 
@@ -38,27 +38,28 @@
 
 | 方案 | 模式 | 含义 | 基线 mean MAD | 页数 | 推荐场景 |
 | --- | --- | --- | ---: | ---: | --- |
-| **可编辑** | `editable` | 流式段落、真表格、软分页 | **0.0734** | 11→11 | 复制改写、长文重排 |
-| **可编辑 + 定位** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0492** | 11→11 | 原生对象 + 像素门禁 ≤0.055 |
-| **高保真** | `hybrid` | 页图 behindDoc + 可编辑层（vanish） | **0.0200** | 11→11 | 像素优先，包内仍有对象 |
-| **像素证明** | `fidelity` | 页图快照为主 | **0.0194** | 11→11 | 外观证明 / 归档观感 |
+| **编辑优先** | `editable` | 流式段落、真表格、软分页、公式文字 fallback | **0.0737** | 11→11 | 复制改写、长文重排 |
+| **排版优先** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0495** | 11→11 | 原生对象 + 版面接近原稿 |
+| **折中验收** | `hybrid` | 页图 behindDoc + 隐藏对象层（vanish） | **0.0203** | 11→11 | 像素优先，包内仍有对象 |
+| **保真归档** | `fidelity` | 页图快照 + 精确竖向表格分隔线 | **0.0197** | 11→11 | 外观证明 / 归档观感 |
 
 关键实现决策：
 
 - LibreOffice 下使用 **DrawingML**（`wp:anchor` + `wps:txbx`），**不用** `w:framePr`（会导致页数崩溃）。  
 - `editable` 采用 **连续 section + 软分页**；历史「每页硬分节」曾把 11 页撑到 21 页。  
 - `positioned` 按源行拆框，IR `line_bboxes`（schema 1.5）逐行锚定；公式保留源坐标裁剪图和隐藏 fallback。
+- 四种输出明确区分：`editable` 负责文字修改，`positioned` 负责原生对象定位，`hybrid` 负责快照对照，`fidelity` 负责快照归档；Table 2/3 均有可读的列分隔线。
 
 ### 2.2 验证与门禁
 
-| 门禁 | v1.0.0-mvp 结果 |
+| 门禁 | v1.0.2-mode-specific-rendering 结果 |
 | --- | --- |
 | 页数 ≈ 源页 | **11 → 11**（四模式） |
-| 文本 CER（`editable`） | **0.0002**（数字错误率 0.0） |
-| `positioned` mean MAD ≤ 0.055 | **0.0492** 达标 |
-| `hybrid` / `fidelity` 像素 | **0.0200** / **0.0194** |
+| 文本 CER（`editable`） | **0.0022**（数字错误率 0.0） |
+| `positioned` mean MAD ≤ 0.055 | **0.0495** 达标 |
+| `hybrid` / `fidelity` 像素 | **0.0203** / **0.0197** |
 | 结构 / 表 / 图（`editable`） | pass |
-| 单元 + 集成测试 | **44 OK**（1 skipped） |
+| 单元 + 集成测试 | **46 OK**（1 skipped） |
 | GUI 烟测（macOS Cocoa） | 预检 + 四模式 + Open output，无闪退 |
 
 每份产物默认写入：
@@ -75,7 +76,7 @@
 - `EditableDocxRenderer`：连续流打包、多栏折叠、图嵌入、STEM 表压缩  
 - `FidelityDocxRenderer`：`positioned` / `hybrid` / `fidelity`  
 - CLI：`pdf2word convert`；GUI：`pdf2word gui`（PySide6）  
-- 本地 job workspace；发布证据 `workspace/archive/v1.0.0-mvp-final/`
+- 本地 job workspace；发布证据 `workspace/archive/v1.0.2-mode-specific-rendering/`
 
 更细的工程清单见 [MVP.md](MVP.md)；历史 MAD 迭代见 [QUALITY_REPORT.md](QUALITY_REPORT.md)。
 
@@ -87,17 +88,17 @@
 
 | Mode | Pages | mean MAD | Overall |
 | --- | ---: | ---: | --- |
-| **editable** | 11 → 11 | **0.0734** | PASS（CER 0.0002；visual warn） |
-| **positioned** | 11 → 11 | **0.0492** | PASS（≤0.055） |
-| **hybrid** | 11 → 11 | **0.0200** | PASS |
-| **fidelity** | 11 → 11 | **0.0194** | PASS |
+| **editable** | 11 → 11 | **0.0737** | PASS（CER 0.0022；visual warn） |
+| **positioned** | 11 → 11 | **0.0495** | PASS（≤0.055） |
+| **hybrid** | 11 → 11 | **0.0203** | PASS |
+| **fidelity** | 11 → 11 | **0.0197** | PASS |
 
 **一句话：** 语义编辑与像素证明两条产品线均已用同一套验证器证明可用。
 
 发布归档内容：
 
 ```text
-workspace/archive/v1.0.0-mvp-final/
+workspace/archive/v1.0.2-mode-specific-rendering/
   docx/{editable,positioned,hybrid,fidelity}.docx
   validation/*.validation_report.{json,md}
   validation/preflight.json
@@ -188,4 +189,4 @@ git push origin v1.0.0-mvp
 
 ## 7. 交接一句话
 
-主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管语义，`positioned` 管纯原生对象像素（≈0.049），`hybrid`/`fidelity` 管像素证明（≈0.02）。外置 OCR/解析与 Agent 尚未闭环；环境依赖 LibreOffice + `PDF2WORD_SOFFICE`（可用 `.env` / `./start.sh`）；回归样本为 Attention 11 页论文；版本以 Git 标签 **`v1.0.0-mvp`** 冻结。
+主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管文字修改，`positioned` 管原生对象定位（≈0.0495），`hybrid` 管快照对照（≈0.0203），`fidelity` 管保真归档（≈0.0197）。外置 OCR/解析与 Agent 尚未闭环；环境依赖 LibreOffice + `PDF2WORD_SOFFICE`（可用 `.env` / `./start.sh`）；回归样本为 Attention 11 页论文；版本以 Git 标签 **`v1.0.2-mode-specific-rendering`** 冻结。
