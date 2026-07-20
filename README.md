@@ -1,200 +1,144 @@
 # PDF-to-Word
 
-**Local-first PDF → editable Word (`.docx`)** with measurable quality gates.
+**一句话：** 本地 PDF 转可编辑 Word（`.docx`），支持 **4 种模式**，兼顾**可编辑性**与**高保真**像素还原。
 
-Convert native-text PDFs into real Word documents you can edit—or into high-fidelity layouts that preserve pixel appearance. Deterministic code owns the main path; optional AI parsers are capability-gated; a validation engine decides pass/fail.
-
-| | |
-| --- | --- |
-| **Release** | `v1.0.0-mvp` (2026-07-20) |
-| **Pipeline** | Preflight → Route → Canonical IR → Render → Validate |
-| **License** | Apache-2.0 |
-| **Python** | ≥ 3.11 |
+版本：`v1.0.0-mvp` · Python ≥ 3.11 · 许可 Apache-2.0
 
 ---
 
-## Highlights
+## 快速开始
 
-| Capability | Result (Attention paper, 11 pages) |
-| --- | --- |
-| Page count fidelity | **11 → 11** in all four modes |
-| Text accuracy (`editable`) | **CER 0.0** |
-| Native editable layout (`positioned`) | **mean MAD 0.0492** (≤ 0.055 gate) |
-| Pixel proof (`hybrid` / `fidelity`) | **MAD 0.0198 / 0.0194** |
-| Automated tests | **38 OK** (1 skipped) |
-| Desktop UI | PySide6 GUI (preflight, convert, open DOCX) |
-
-Artifacts: `workspace/archive/v1.0.0-mvp/` · Full write-up: [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md)
-
----
-
-## Two product paths
-
-| Path | Modes | You care about… |
-| --- | --- | --- |
-| **Editable** | `editable`, `positioned` | Copy/paste, rewrite, native Word objects |
-| **High fidelity** | `hybrid`, `fidelity` | Looks like the PDF (pixel MAD ≈ 0.02) |
-
-### Mode guide
-
-| Mode | What you get | MAD (baseline) | Best for |
-| --- | --- | ---: | --- |
-| **`editable`** | Flow paragraphs, real tables, soft page breaks | **0.0724** | Long-form editing & reflow |
-| **`positioned`** | DrawingML text boxes, floating tables, image anchors | **0.0492** | Editable objects + coordinate layout |
-| **`hybrid`** | Page snapshot behind + vanished editable layer | **0.0198** | Pixel-first, objects still in the package |
-| **`fidelity`** | Snapshot-only visual proof | **0.0194** | Appearance proof / archival look |
-
----
-
-## One-command setup
+### 1. 安装依赖
 
 ```bash
-git clone <your-remote-url> PDF-to-Word   # or: git clone pdf2word-v1.0.0-mvp.gitbundle
 cd PDF-to-Word
-./scripts/setup.sh          # creates .venv, installs pinned deps + GUI
-cp .env.example .env        # edit PDF2WORD_SOFFICE if needed
+./scripts/setup.sh
+# 等价：python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-gui.txt && .venv/bin/pip install -e .
 ```
 
-**Pinned core packages** (also in `requirements.txt` / `pyproject.toml`):
-
-`pydantic==2.13.4` · `pdfplumber==0.11.10` · `pypdfium2==5.12.1` · `python-docx==1.2.0` · `Pillow==12.3.0` · GUI: `PySide6==6.11.1`
-
-### LibreOffice (visual MAD / page count)
+视觉校验（页数 / MAD）需要 LibreOffice：
 
 ```bash
-# macOS
 brew install --cask libreoffice
-# .env already points at:
-# PDF2WORD_SOFFICE=/Applications/LibreOffice.app/Contents/MacOS/soffice
+# 默认路径（已写入 start.sh）：
+# /Applications/LibreOffice.app/Contents/MacOS/soffice
 ```
 
-Details: [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md)
-
----
-
-## Quick start
-
-### GUI (recommended for demos)
+### 2. 一键启动 GUI
 
 ```bash
-./start.sh gui
-# equivalent: PYTHONPATH=src .venv/bin/python -m pdf2word gui
+./start.sh
 ```
 
-Drop a PDF → choose mode → **Preflight** or **Convert** → **Open output**.
+或在 Finder 中双击 `start.sh`（首次若被拦截：右键 → 打开）。
 
-### CLI convert
+界面：拖入 PDF → 选模式 → Preflight / Convert → Open output。
+
+### 3. CLI 示例
 
 ```bash
-# Attention baseline, positioned mode, with validation
-./start.sh convert NIPS-2017-attention-is-all-you-need-Paper.pdf \
-  --pages 1-11 --mode positioned \
-  --out workspace/jobs/demo/result.docx --dump-ir
+export PDF2WORD_SOFFICE="/Applications/LibreOffice.app/Contents/MacOS/soffice"
+PYTHONPATH=src .venv/bin/python -m pdf2word convert \
+  "NIPS-2017-attention-is-all-you-need-Paper.pdf" \
+  --pages 1-11 \
+  --mode positioned \
+  --out workspace/jobs/demo/result.docx \
+  --dump-ir
 ```
 
-### CLI flags
+也可用：`./scripts/cli.sh convert input.pdf --pages 1-3 --mode editable --out out.docx`
 
-| Flag | Meaning |
+| 常用参数 | 说明 |
 | --- | --- |
-| `--mode` | `editable` \| `positioned` \| `hybrid` \| `fidelity` |
-| `--pages` | 1-based list/ranges, e.g. `1,3-5` |
-| `--dump-ir` | Write Canonical IR JSON into the job folder |
-| `--no-validate` | Skip post-render checks |
-| `--no-visual-diff` | Structure/text/table/image only (no LibreOffice) |
+| `--mode` | `editable` / `positioned` / `hybrid` / `fidelity` |
+| `--pages` | 页码，如 `1` 或 `1-11` 或 `1,3-5` |
+| `--dump-ir` | 导出中间 IR JSON |
+| `--no-validate` | 跳过校验 |
+| `--no-visual-diff` | 不做 LibreOffice 视觉对比 |
 
-Successful runs print `VALIDATION_PASSED` and, with LibreOffice,  
-`VISUAL_PAGES: source=… rendered=… mean_mad=…`.
-
-### Tests
+### 4. 跑测试
 
 ```bash
-./start.sh test
-# or: PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
+# 期望：38 OK（1 skipped）
 ```
 
 ---
 
-## Architecture (short)
+## 核心模式说明
+
+| 模式 | 区别 | 适用场景 |
+| --- | --- | --- |
+| **`editable`** | 流式段落、真 Word 表格，可正常改字重排 | 复制编辑、长文修改 |
+| **`positioned`** | DrawingML 文本框 / 浮动表 / 锚定图，按 PDF 坐标放 | 既要可编辑对象，又要版式接近原稿 |
+| **`hybrid`** | 页图垫底 + 包内可编辑层（文字默认 vanish） | 像素优先，仍保留对象 |
+| **`fidelity`** | 以页图快照为主 | 外观证明 / 高保真对照 |
+
+- **可编辑方案：** `editable`、`positioned`  
+- **高保真方案：** `hybrid`、`fidelity`  
+
+---
+
+## 验收亮点（Attention 论文 · 全 11 页）
+
+样本：`NIPS-2017-attention-is-all-you-need-Paper.pdf`  
+证据目录：`workspace/archive/v1.0.0-mvp/`
+
+| 指标 | 结果 |
+| --- | --- |
+| 页数 | **11 → 11**（四种模式） |
+| 文本 CER（`editable`） | **0.0** |
+| `positioned` mean MAD | **≈ 0.049**（门禁 ≤ 0.055；发布跑 0.0492 / GUI 烟测 0.0493） |
+| `hybrid` / `fidelity` mean MAD | **0.0198 / 0.0194** |
+| `editable` mean MAD | **≈ 0.072**（语义流式，允许视觉 warn） |
+| 单测 | **38 OK**（1 skipped） |
+
+---
+
+## 已知限制
+
+当前 MVP **尚未**覆盖（避免预期不符）：
+
+- 复杂嵌套公式的完整 OMML 还原（现为简单结构化 + 文本 fallback）  
+- 跨页表格的真实拆分与连续表头重建  
+- 扫描件 / 低质量 PDF 的 OCR 主路径（PaddleOCR 等运行时未齐）  
+- Agent 自动修复环  
+- pure `positioned` 个别页残差仍可继续压（如第 2 页）  
+
+原生文本层 PDF 为主路径；外置解析默认关闭（`PDF2WORD_ENABLE_EXTERNAL_PARSERS=1` 才尝试）。
+
+---
+
+## 项目结构（简）
 
 ```text
-PDF → Preflight + Router → Parser (native / optional external)
-    → Canonical IR (schema 1.4)
-    → Renderer (editable | DrawingML family)
-    → Validation (structure · text CER · table · image · visual MAD)
-    → DOCX + job artifacts under workspace/jobs/
+src/pdf2word/     # 主程序
+tests/            # 单测 / 集成测
+docs/             # 内部施工日志与质量报告（见下）
+start.sh          # 一键 GUI
+scripts/setup.sh  # 环境安装
+workspace/archive/v1.0.0-mvp/   # MVP 最终产物（docx + 校验 + 日志）
 ```
 
-**Principles:** deterministic main chain · optional models for recognition · validator as gate · Agent repair deferred.
+## 内部文档（施工日志，保留复盘用）
 
----
-
-## Project layout
-
-```text
-src/pdf2word/     # package: cli, gui, IR, parsers, renderers, validation
-tests/            # unit + integration
-docs/             # delivery report, quality, setup, research
-scripts/          # setup.sh
-start.sh          # load .env and run convert | gui | test
-.env.example      # PDF2WORD_SOFFICE and related knobs
-requirements.txt  # pinned core deps
-workspace/archive/v1.0.0-mvp/   # release DOCX + validation evidence
-dist/releases/    # tarballs + git bundle (local packaging)
-```
-
----
-
-## Documentation
-
-| Doc | Audience |
+| 文件 | 内容 |
 | --- | --- |
-| [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md) | **Project delivery report** (scope, metrics, reuse) |
-| [docs/QUALITY_REPORT.md](docs/QUALITY_REPORT.md) | Detailed MAD / page-count audit trail |
-| [docs/MVP.md](docs/MVP.md) | Implemented scope + next engineering steps |
-| [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md) | Visual validation install |
-| [docs/OPEN_SOURCE_AUDIT.md](docs/OPEN_SOURCE_AUDIT.md) | Optional MinerU / Docling / PaddleOCR status |
-| [third_party/README.md](third_party/README.md) | How to clone optional engines |
+| [docs/MVP.md](docs/MVP.md) | 已实现范围 / 下一步 |
+| [docs/QUALITY_REPORT.md](docs/QUALITY_REPORT.md) | MAD、页数迭代证据 |
+| [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md) | 完整交付说明 |
+| [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md) | LibreOffice 安装 |
 
 ---
 
-## What is deferred (post-MVP)
+## 备份与版本
 
-- Agent repair loop and IR patch storage  
-- Full Docling / MinerU / PaddleOCR model runtimes  
-- Scanned-page OCR; true cross-page table continuation  
-- Nested formula OMML polish; pure-`positioned` page-2 residual  
-- Cross-platform desktop packaging beyond macOS smoke  
-
-External parsers stay **off** unless `PDF2WORD_ENABLE_EXTERNAL_PARSERS=1`.
-
----
-
-## Backup & version freeze
-
-| Item | Location |
-| --- | --- |
-| Git tag | `v1.0.0-mvp` on `main` |
-| Evidence archive | `workspace/archive/v1.0.0-mvp/` |
-| Packaged tarball | `dist/releases/pdf2word-v1.0.0-mvp-archive.tar.gz` |
-| Offline git | `dist/releases/pdf2word-v1.0.0-mvp.gitbundle` |
-
-**Push to remote** (when you have a GitHub/GitLab URL):
+- Git 标签：`v1.0.0-mvp`  
+- 本地验收包：`workspace/archive/v1.0.0-mvp/`  
+- 压缩备份（与代码仓库分开保存）：`pdf2word-v1.0.0-mvp-archive.zip`  
 
 ```bash
-git remote add origin <YOUR_REPO_URL>
+# 推远程（配置 origin 后）
 git push -u origin main
 git push origin v1.0.0-mvp
 ```
-
-Restore from bundle on another machine:
-
-```bash
-git clone pdf2word-v1.0.0-mvp.gitbundle PDF-to-Word
-cd PDF-to-Word && git checkout v1.0.0-mvp
-```
-
----
-
-## Status in one line
-
-Industrial, **validated** PDF→DOCX: use **`editable`** for semantics, **`positioned`** for native objects (MAD ≈ 0.049), **`hybrid`/`fidelity`** for pixel proof (MAD ≈ 0.02). OCR engines, full formula OMML, and Agent repair remain open.

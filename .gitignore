@@ -17,6 +17,11 @@ build/
 # Local packaging output (regenerate with scripts / tar)
 dist/
 
+# Release zip lives on cloud / Desktop backups — not in the code repo
+pdf2word-*-archive.zip
+pdf2word-*-package.zip
+*.gitbundle
+
 # Secrets / machine-local env (keep .env.example)
 .env
 
