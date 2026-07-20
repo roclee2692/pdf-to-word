@@ -42,6 +42,6 @@ fi
 
 echo
 echo "Setup complete."
-echo "  GUI:  ./start.sh gui"
-echo "  Test: ./start.sh test"
-echo "  Conv: ./start.sh convert input.pdf --pages 1 --mode editable --out out.docx"
+echo "  GUI:  ./start.sh"
+echo "  Test: PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q"
+echo "  Conv: ./scripts/cli.sh convert input.pdf --pages 1 --mode editable --out out.docx"
