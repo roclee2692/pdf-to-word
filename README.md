@@ -78,10 +78,10 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 
 | 模式 | 类型 | 区别 | 适用场景 |
 | --- | --- | --- | --- |
-| **`positioned`** | **固定版高保真（默认）** | 可移动的整页源图，避免 Office/WPS 空白兼容问题 | 论文逐页校对、公式和表格视觉还原 |
+| **`positioned`** | **固定版高保真（默认）** | 可移动的整页源图（视觉权威） | 论文逐页校对、公式和表格视觉还原 |
 | **`editable`** | **编辑优先** | 连续流段落、真 Word 表格、公式文字 fallback | 复制、修改、重排长文 |
-| **`hybrid`** | **折中验收** | PDF 快照垫底 + 隐藏可编辑层 | 关键公式/图片保真，同时保留对象 |
-| **`fidelity`** | **保真优先** | PDF 快照 + 精确竖向表格分隔线 | 视觉归档和像素证明 |
+| **`hybrid`** | **固定视觉 + 隐藏检索层** | 整页源图 + 隐藏文字（**不再叠浮动表/竖线**） | 看起来像 positioned，可检索正文 |
+| **`fidelity`** | **纯页图归档** | 整页源图，无额外表格网格线 | 像素归档；与 positioned 同级视觉 |
 
 - **需要继续编辑正文：** 用 `editable`。文本、字体槽、粗体/斜体、上下标和原生表格优先，复杂公式以可编辑文字 fallback 保留。
 - **需要版面最接近 PDF：** 用 `positioned`。每页是可选中、可移动的 Word 图片，公式、字体、表格和图形按源页显示；正文不能逐字编辑。
@@ -101,7 +101,7 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 | 文本 CER（`editable`） | **0.0022**（数字错误率 0.0；公式脚本符号仍按视觉上下标表达） |
 | `editable` mean MAD | **0.0737**（语义流模式，视觉警告不影响结构门禁） |
 | `positioned` mean MAD | **0.0194**（固定版页图；≤ 0.055） |
-| `hybrid` / `fidelity` mean MAD | **0.0203 / 0.0197**（像素工具） |
+| `hybrid` / `fidelity` mean MAD | **0.0194 / 0.0194**（v1.0.5：去掉叠表/竖线后与固定版同级） |
 | 单测 | **47 OK**（1 skipped；GUI smoke 已通过） |
 
 最终产物与逐模式报告归档于 `workspace/archive/v1.0.4-paper-90/`：
@@ -119,6 +119,21 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 - `fidelity`：页图快照为主，公式、字体、图片和颜色最稳定；表格仅补精确竖向分隔线，适合归档，不适合作为主要编辑版本。
 
 公式说明：`positioned/hybrid/fidelity` 由源页图保证显示；`editable` 优先保留可编辑文字和上下标，简单结构仍可写入 OMML 并附隐藏文本 fallback。复杂嵌套公式尚未承诺完整原生 OMML。
+
+### 转换后用 Pages / LibreOffice 整理（通用建议）
+
+固定版（`positioned`）在视觉上可接近「一比一」；若还要在 macOS 上继续排版或导出，可参考：
+
+1. **优先用 Pages 处理**  
+   对 macOS 适配更好，PDF/Word 的字体与排版显示通常比 LibreOffice 更清晰。LibreOffice 更适合批量/无界面的校验链路（本项目视觉 MAD 也依赖它），人工终排更推荐 Pages 或 Word。
+
+2. **扫描件先 OCR，再进可编辑流程**  
+   若 PDF 本身是扫描图，文字在 `positioned` 里仍是整页图——放大不会变清晰可编辑字。需要改字时：先用带 OCR 的工具（Adobe Acrobat、系统连续互点、可靠在线 OCR 等）得到可检索 PDF/DOCX，再导入本工具的 `editable`，或直接在 OCR 结果上改。
+
+3. **先调边距，再调视图缩放**  
+   导入后先把页边距收紧到合适范围，再调整缩放比例，避免内容挤成一团或留白过大。
+
+模式对照：要「看起来像原稿」→ `positioned`；要「能改字改表」→ 先保证文本层/OCR，再用 `editable`。
 
 ---
 

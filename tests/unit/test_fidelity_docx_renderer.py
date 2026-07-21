@@ -79,7 +79,8 @@ class FidelityDocxRendererTests(unittest.TestCase):
             self.assertIn("pic:pic", xml)
             self.assertNotIn("wps:txbx", xml)
 
-    def test_snapshot_mode_adds_vertical_table_grid_overlay(self):
+    def test_snapshot_fidelity_does_not_overlay_table_grid_lines(self):
+        """Page picture is visual authority; extra vertical grids caused p8/p9 junk lines."""
         from PIL import Image
         from docx import Document
 
@@ -114,8 +115,10 @@ class FidelityDocxRendererTests(unittest.TestCase):
             doc = Document(output)
             xml = doc.element.body.xml
             self.assertIn("wp:anchor", xml)
+            self.assertIn("pic:pic", xml)
             self.assertEqual(len(doc.tables), 0)
-            self.assertEqual(xml.count("<wps:wsp"), 1)
+            # No DrawingML textboxes for inferred column rules
+            self.assertEqual(xml.count("<wps:wsp"), 0)
 
     def test_hybrid_mode_keeps_snapshot_and_vanished_editable_text(self):
         from PIL import Image
@@ -135,6 +138,39 @@ class FidelityDocxRendererTests(unittest.TestCase):
             self.assertIn("wps:txbx", xml)
             self.assertIn("Editable fallback text", xml)
             self.assertIn("w:vanish", xml)
+
+    def test_hybrid_snapshot_skips_floating_tables_that_double_paint_borders(self):
+        from PIL import Image
+        from docx import Document
+
+        with tempfile.TemporaryDirectory() as tmp:
+            background = Path(tmp) / "page.png"
+            Image.new("RGB", (612, 792), "white").save(background)
+            page = self._page(str(background))
+            page.elements.append(
+                DocumentElement(
+                    id="table_001",
+                    type="table",
+                    text="A\tB",
+                    bbox=BoundingBox(left=0.1, top=0.3, right=0.9, bottom=0.45),
+                    reading_order=2,
+                    table=TablePayload(
+                        row_count=1,
+                        column_count=2,
+                        rows=[[TableCellPayload(text="A"), TableCellPayload(text="B")]],
+                    ),
+                    provenance=Provenance(parser="test", source_page=1),
+                )
+            )
+            output = Path(tmp) / "hybrid-table.docx"
+            FidelityDocxRenderer().render(
+                DocumentIR(document=DocumentMeta(page_count=1), pages=[page]),
+                output,
+                layout="hybrid",
+            )
+            doc = Document(output)
+            self.assertEqual(len(doc.tables), 0)
+            self.assertIn("pic:pic", doc.element.body.xml)
 
     def test_no_snapshot_fallback_emits_editable_drawingml_textbox(self):
         from docx import Document

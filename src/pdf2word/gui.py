@@ -332,8 +332,8 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             # Deliverable defaults first; hybrid/fidelity are pixel-proof tools only.
             mode_combo.addItem("positioned — 固定版高保真（可移动页图）", "positioned")
             mode_combo.addItem("editable — 流式可编辑", "editable")
-            mode_combo.addItem("hybrid — 像素校对(非主交付)", "hybrid")
-            mode_combo.addItem("fidelity — 像素证明(非主交付)", "fidelity")
+            mode_combo.addItem("hybrid — 页图+隐藏检索（无叠表线）", "hybrid")
+            mode_combo.addItem("fidelity — 纯页图归档", "fidelity")
             mode_combo.setCurrentIndex(0)
             mode_combo.setToolTip(
                 "positioned: fixed-layout movable page picture.\n"

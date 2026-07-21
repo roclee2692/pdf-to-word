@@ -1,0 +1,10 @@
+WARNING: page 5: preferred 'docling' unavailable; using 'native' (quality may be limited)
+WARNING: page 7: preferred 'docling' unavailable; using 'native' (quality may be limited)
+DOCX: workspace/archive/v1.0.5-table-clean/docx/positioned.docx
+IR: workspace/jobs/20260721_040752_21f485f1/ir/original.json
+PREFLIGHT: workspace/jobs/20260721_040752_21f485f1/validation/preflight.json
+VALIDATION: workspace/jobs/20260721_040752_21f485f1/validation/validation_report.json
+VALIDATION_PASSED: True
+VALIDATION_LAYERS: structure=pass text=skipped table=skipped image=pass visual=pass
+VISUAL_PAGES: source=11 rendered=11 delta=0 mean_mad=0.0194
+JOB: workspace/jobs/20260721_040752_21f485f1

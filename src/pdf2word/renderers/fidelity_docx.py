@@ -7,12 +7,12 @@ from pdf2word.renderers.editable_docx import EditableDocxRenderer
 
 
 class FidelityDocxRenderer:
-    """DrawingML-positioned editable objects, optional fidelity snapshot layer.
+    """Snapshot-first fixed layouts plus optional hidden structure.
 
     layout:
-      - positioned: portable movable page snapshot with retained hidden structure
-      - fidelity: source-page snapshot plus precise vertical table separators (pixel proof)
-      - hybrid: visible snapshot + hidden DrawingML searchable layer
+      - positioned: movable full-page source picture only (visual 1:1, portable)
+      - fidelity: same page picture as visual authority (no extra table-line overlays)
+      - hybrid: page picture + hidden searchable text only (no floating tables/borders)
     """
 
     name = "fidelity_docx"
@@ -76,35 +76,34 @@ class FidelityDocxRenderer:
                     qn,
                     behind_doc=False,
                 )
-
-            if layout in {"hybrid", "fidelity"}:
+                # Page chrome is already painted in the snapshot. Extra Word
+                # header/footer text/page fields double-print on page 1 chrome.
                 for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
                     for run in paragraph.runs:
                         run.font.hidden = True
 
-            if layout == "fidelity" and has_snapshot:
-                # Keep the source snapshot as the visual proof, but add
-                # precise vertical separators so every delivered mode has
-                # readable column boundaries even when the PDF only contains
-                # horizontal rules.
+            if has_snapshot and layout in {"positioned", "fidelity"}:
+                # Pure visual delivery: the page picture is the only paint.
+                # Do NOT overlay inferred table grids — those misalign with
+                # real STEM table rules (Attention p8/p9) and look like junk lines.
+                continue
+
+            if has_snapshot and layout == "hybrid":
+                # Visual = page picture (same as positioned). Structure layer is
+                # hidden searchable text only — never floating tables, borders,
+                # separators, or duplicate images (those caused double grids).
                 self._overlay_visible = False
+                self._vanish_text = True
                 for element in page.ordered_elements():
-                    if element.type == "table":
-                        self._append_table_grid_overlay(anchor, page, element, OxmlElement, qn)
-                self._overlay_visible = True
+                    if element.type in {"header", "footer", "table", "image", "separator"}:
+                        continue
+                    if element.text or element.type == "formula":
+                        self._append_text_shape(anchor, page, element, OxmlElement, parse_xml, qn)
                 continue
 
-            if layout == "positioned" and has_snapshot:
-                # Fixed-layout delivery is intentionally snapshot-first. The
-                # full page remains a selectable/movable Word picture and the
-                # source-page structure is available through IR, avoiding
-                # editor-specific blank DrawingML canvases.
-                continue
-
-            # No snapshot fallback: emit native DrawingML. Hybrid keeps the
-            # object layer hidden beneath its visible page snapshot.
-            self._overlay_visible = layout != "hybrid"
-            self._vanish_text = layout == "hybrid"
+            # No snapshot fallback: emit native DrawingML objects.
+            self._overlay_visible = True
+            self._vanish_text = False
             for element in page.ordered_elements():
                 if element.type in {"header", "footer"}:
                     continue
@@ -120,8 +119,6 @@ class FidelityDocxRenderer:
                     and self._overlay_visible
                 ):
                     self._append_formula_image_shape(doc, anchor, page, element, OxmlElement, qn, Pt)
-                    # Preserve searchable text without painting a second,
-                    # potentially malformed math layer over the source crop.
                     previous_overlay = self._overlay_visible
                     previous_vanish = self._vanish_text
                     self._overlay_visible = False
