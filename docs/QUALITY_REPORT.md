@@ -58,6 +58,7 @@ Phase 4 / historical regression rows below are retained for audit.
 - Current 11-page editable conversion structure/text/table/image layers pass (CER `0.0022`, digit error rate `0.0`); the page-count gate is `11 → 11`, with visual warnings on pages 2, 6, and 8.
 - Display formulas on the Attention sample retain source-coordinate raster crops in `positioned`, `hybrid`, and `fidelity`; the learning-rate formula on page 7 was visually verified. `editable` renders its formula run stream with superscript/subscript styling and keeps a hidden plain-text fallback for structured OMML.
 - Table 2 and Table 3 in all four delivered outputs have readable column separation: native modes use full cell grids, while `fidelity` overlays only precise vertical separators over the source snapshot.
+- PySide6 GUI conversion smoke now opens a two-pane comparison window for every mode: the left pane loads the selected source PDF page and the right pane loads the matching LibreOffice-rendered DOCX page; the dialog also exposes page count, MAD, CER and editability policy.
 
 ## Partially Implemented
 

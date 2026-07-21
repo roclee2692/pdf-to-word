@@ -34,8 +34,10 @@ cp -n .env.example .env   # 可按需修改
 或在 Finder 中双击 `start.sh`（首次若被拦截：右键 → 打开）。  
 若启动失败：查看 `logs/start.log`（双击时错误也会写在这里，macOS 会弹窗提示）。
 
-界面：拖入 PDF → 选模式 → Preflight / Convert → 查看验证摘要 → Open output。
+界面：拖入 PDF → 选模式 → Preflight / Convert → 查看验证摘要 → 左右对照预览 → Open output。
 **默认模式：`positioned`（排版优先的原生对象交付）。**
+
+转换完成后会自动打开对照窗口：左侧是源 PDF 页面，右侧是 LibreOffice 实际渲染的 DOCX 页面，可用页码切换逐页比对，并查看页数、MAD、CER、表格/公式/图片数量和当前模式的编辑性告警。点击“在默认 Word 应用中打开”后，可在 Word、WPS 或 LibreOffice 中实际修改 DOCX；Qt 预览窗口本身是验收预览，不是内嵌 Word 编辑器。
 
 ### 3. CLI 示例
 

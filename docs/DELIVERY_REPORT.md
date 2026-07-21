@@ -60,7 +60,7 @@
 | `hybrid` / `fidelity` 像素 | **0.0203** / **0.0197** |
 | 结构 / 表 / 图（`editable`） | pass |
 | 单元 + 集成测试 | **46 OK**（1 skipped） |
-| GUI 烟测（macOS Cocoa） | 预检 + 四模式 + Open output，无闪退 |
+| GUI 烟测（macOS Cocoa） | 预检 + 四模式 + 左右对照预览 + Open output，无闪退 |
 
 每份产物默认写入：
 
@@ -74,8 +74,9 @@
 - Canonical IR schema **1.5**（含 `line_bboxes`、字体槽、表合并占位、源词间距标记等）
 - 原生解析 + 能力感知路由；外置引擎不可用则降级 native  
 - `EditableDocxRenderer`：连续流打包、多栏折叠、图嵌入、STEM 表压缩  
-- `FidelityDocxRenderer`：`positioned` / `hybrid` / `fidelity`  
+- `FidelityDocxRenderer`：`positioned` / `hybrid` / `fidelity`
 - CLI：`pdf2word convert`；GUI：`pdf2word gui`（PySide6）  
+- GUI 转换后自动打开源 PDF / DOCX 左右对照预览，可逐页切换并显示页数、MAD、CER 与编辑性边界；实际编辑通过默认 Word/WPS/LibreOffice 打开 DOCX。
 - 本地 job workspace；发布证据 `workspace/archive/v1.0.2-mode-specific-rendering/`
 
 更细的工程清单见 [MVP.md](MVP.md)；历史 MAD 迭代见 [QUALITY_REPORT.md](QUALITY_REPORT.md)。

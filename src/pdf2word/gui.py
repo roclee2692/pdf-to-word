@@ -20,13 +20,13 @@ def _resolve_pages(pdf_path: Path, selection: str) -> list[int]:
 def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
     """Launch the optional PySide6 desktop shell around the CLI service."""
     try:
-        from PySide6.QtCore import QThread, QUrl, Signal
-        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtCore import QThread, QUrl, Qt, Signal
+        from PySide6.QtGui import QDesktopServices, QPixmap
         from PySide6.QtWidgets import (
             QApplication,
+            QDialog,
             QFileDialog,
             QFormLayout,
-            QGridLayout,
             QHBoxLayout,
             QLabel,
             QLineEdit,
@@ -36,6 +36,9 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             QProgressBar,
             QPushButton,
             QComboBox,
+            QScrollArea,
+            QSpinBox,
+            QSplitter,
             QVBoxLayout,
             QWidget,
         )
@@ -124,6 +127,152 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             except Exception as exc:  # pragma: no cover - exercised by the GUI runtime
                 self.failed.emit(f"{type(exc).__name__}: {exc}")
 
+    class PreviewPane(QWidget):
+        """A page image that fits the pane while remaining scrollable."""
+
+        def __init__(self, title: str):
+            super().__init__()
+            self._source_pixmap = QPixmap()
+            title_label = QLabel(title)
+            title_label.setStyleSheet("font-weight: 600; padding: 4px 0;")
+            self._image = QLabel("No preview available")
+            self._image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._image.setMinimumSize(240, 320)
+            self._image.setStyleSheet(
+                "background: #f4f5f7; border: 1px solid #c9cdd3; color: #68707a;"
+            )
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            scroll.setWidget(self._image)
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(title_label)
+            layout.addWidget(scroll, 1)
+            self._scroll = scroll
+
+        def set_image(self, path: Path | None) -> None:
+            self._source_pixmap = QPixmap(str(path)) if path and path.exists() else QPixmap()
+            self._refresh_image()
+
+        def _refresh_image(self) -> None:
+            if self._source_pixmap.isNull():
+                self._image.setPixmap(QPixmap())
+                self._image.setText("No preview available")
+                return
+            self._image.setText("")
+            viewport = self._scroll.viewport().size()
+            max_width = max(240, viewport.width() - 18)
+            max_height = max(320, viewport.height() - 18)
+            scaled = self._source_pixmap.scaled(
+                max_width,
+                max_height,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self._image.setPixmap(scaled)
+            self._image.resize(scaled.size())
+
+        def resizeEvent(self, event) -> None:  # pragma: no cover - Qt layout callback
+            super().resizeEvent(event)
+            self._refresh_image()
+
+    class ComparisonDialog(QDialog):
+        """Side-by-side visual comparison of the source PDF and rendered DOCX."""
+
+        def __init__(self, parent, pdf_path: Path, result: object, pages: list[int], mode: str):
+            super().__init__(parent)
+            self.setWindowTitle(f"PDF / Word 对照预览 — {mode}")
+            self.resize(1320, 860)
+            self._result = result
+            self._pages = pages
+
+            report = getattr(result, "validation_report", None)
+            visual = getattr(report, "visual", None)
+            visual_metrics = getattr(visual, "metrics", None) or {}
+            text = getattr(report, "text", None)
+            text_metrics = getattr(text, "metrics", None) or {}
+            ir = getattr(result, "document_ir", None)
+            element_names = [
+                type(element).__name__
+                for page in getattr(ir, "pages", [])
+                for element in page.elements
+            ]
+            table_count = element_names.count("TableElement")
+            formula_count = element_names.count("FormulaElement")
+            image_count = element_names.count("ImageElement")
+            editability = {
+                "editable": "正文、原生表格可编辑；复杂公式以文字/上下标 fallback 保留",
+                "positioned": "原生定位对象可编辑；部分公式使用视觉裁剪图，不能承诺完全可编辑",
+                "hybrid": "视觉快照优先；对象层隐藏，仅用于检索/替换，不是主编辑版本",
+                "fidelity": "视觉快照优先，不作为主要可编辑版本",
+            }.get(mode, "请打开 DOCX 在 Word/WPS/LibreOffice 中检查编辑")
+            summary = (
+                f"源 PDF：{pdf_path.name}    模式：{mode}    "
+                f"页数：{visual_metrics.get('source_page_count', len(pages))} → "
+                f"{visual_metrics.get('rendered_page_count', '?')}    "
+                f"MAD：{visual_metrics.get('mean_mad', 'n/a')}    "
+                f"CER：{text_metrics.get('character_error_rate', 'n/a')}\n"
+                f"IR 元素：表格 {table_count} · 公式 {formula_count} · 图片 {image_count}\n"
+                f"编辑性：{editability}"
+            )
+            summary_label = QLabel(summary)
+            summary_label.setWordWrap(True)
+            summary_label.setStyleSheet(
+                "padding: 6px; background: #f4f5f7; border: 1px solid #d5d9df;"
+            )
+
+            self._page_spin = QSpinBox()
+            self._page_spin.setRange(1, max(1, len(pages)))
+            self._page_spin.valueChanged.connect(self._show_page)
+            controls = QHBoxLayout()
+            controls.addWidget(QLabel("对照页"))
+            controls.addWidget(self._page_spin)
+            controls.addWidget(QLabel("（左：PDF；右：DOCX 经 LibreOffice 渲染页）"))
+            controls.addStretch(1)
+            open_button = QPushButton("在默认 Word 应用中打开")
+            open_button.clicked.connect(self._open_output)
+            close_button = QPushButton("关闭")
+            close_button.clicked.connect(self.close)
+            controls.addWidget(open_button)
+            controls.addWidget(close_button)
+
+            self._source_pane = PreviewPane("源 PDF")
+            self._output_pane = PreviewPane("转换后 DOCX")
+            splitter = QSplitter(Qt.Orientation.Horizontal)
+            splitter.addWidget(self._source_pane)
+            splitter.addWidget(self._output_pane)
+            splitter.setSizes([640, 640])
+
+            layout = QVBoxLayout(self)
+            layout.addWidget(summary_label)
+            layout.addLayout(controls)
+            layout.addWidget(splitter, 1)
+            self._show_page(1)
+
+        def _show_page(self, page_index: int) -> None:
+            index = max(0, page_index - 1)
+            source_page = self._pages[index] if index < len(self._pages) else None
+            validation_dir = getattr(getattr(self._result, "workspace", None), "validation_dir", None)
+            visual_dir = Path(validation_dir) / "visual" if validation_dir else None
+            source_path = (
+                visual_dir / "source_pages" / f"page_{source_page:03d}.png"
+                if visual_dir and source_page
+                else None
+            )
+            output_path = (
+                visual_dir / "docx_pages" / f"page_{index + 1:03d}.png"
+                if visual_dir
+                else None
+            )
+            self._source_pane.set_image(source_path)
+            self._output_pane.set_image(output_path)
+
+        def _open_output(self) -> None:
+            output = getattr(self._result, "output_path", None)
+            if output:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(output)))
+
     class MainWindow(QMainWindow):
         def __init__(self):
             super().__init__()
@@ -131,6 +280,7 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             self.resize(980, 680)
             self._worker = None
             self._last_output: Path | None = None
+            self._preview_dialog: QDialog | None = None
 
             source_edit = PdfDropLineEdit()
             source_edit.setPlaceholderText("Select a PDF file")
@@ -320,6 +470,13 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
                 "cer": text_metrics.get("character_error_rate"),
             }
             self._log.appendPlainText(json.dumps(summary, ensure_ascii=False, indent=2))
+            pdf_path = Path(self._source_edit.text().strip()).expanduser()
+            pages = [page.page_number for page in getattr(getattr(result, "document_ir", None), "pages", [])]
+            mode = self._mode_combo.currentData() or "positioned"
+            if self._preview_dialog is not None:
+                self._preview_dialog.close()
+            self._preview_dialog = ComparisonDialog(self, pdf_path, result, pages, str(mode))
+            self._preview_dialog.show()
 
         def _worker_failed(self, message: str) -> None:
             self._set_busy(False, "Failed")

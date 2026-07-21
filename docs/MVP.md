@@ -28,6 +28,8 @@ The first implementation deliberately avoids Agent repair.
 
 Unit tests: **46 OK** (1 skipped). GUI smoke: preflight + four modes + Open output on macOS Cocoa.
 
+GUI 对照预览已接入：转换完成后自动显示源 PDF 与 LibreOffice 渲染后的 DOCX 页面，可逐页切换并查看页数、MAD、CER 和 IR 元素摘要；实际编辑仍通过默认 Word/WPS/LibreOffice 打开生成的 DOCX。
+
 The mode contract is intentional: `editable` is the text-editing output, `positioned` is the native-object layout output, `hybrid` is the visual-review compromise, and `fidelity` is the snapshot archive. Table 2 and Table 3 use full native grids in the editable modes; fidelity adds only precise vertical separator lines over the source page snapshot.
 
 ## Next Engineering Steps

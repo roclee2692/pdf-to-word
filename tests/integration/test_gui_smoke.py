@@ -72,6 +72,13 @@ class GuiSmokeTests(unittest.TestCase):
                 if "mean_mad" not in visual_metrics:
                     fail(f"{current_mode}: MAD missing from validation")
                     return
+                preview = getattr(window, "_preview_dialog", None)
+                if preview is None:
+                    fail(f"{current_mode}: comparison preview was not opened")
+                    return
+                if preview._source_pane._source_pixmap.isNull() or preview._output_pane._source_pixmap.isNull():
+                    fail(f"{current_mode}: comparison preview did not load both page images")
+                    return
                 # Editable formulas preserve caret/underscore structure as
                 # superscript/subscript runs; allow the small text-reader
                 # delta while keeping the smoke test strict on content loss.
