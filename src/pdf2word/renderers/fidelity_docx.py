@@ -52,13 +52,20 @@ class FidelityDocxRenderer:
             section.left_margin = Pt(0)
             section.right_margin = Pt(0)
             section.top_margin = Pt(0)
-            section.bottom_margin = Pt(0)
+            # Thin footer band so centered PAGE numbers are visible on every page
+            # (including page 1) without rewriting body content.
+            section.bottom_margin = Pt(28)
             section.header_distance = Pt(0)
-            section.footer_distance = Pt(0)
-            # Keep running chrome as real Word header/footer content. The
-            # snapshot and positioned body are separate from this semantic
-            # layer, so copying the IR text does not require painting it twice.
-            flow_renderer._render_page_header_footer(section, page)
+            section.footer_distance = Pt(10)
+            # Unified sequential page numbers for all modes; clear header so IR
+            # conference strings do not compete with the page picture.
+            section.header.paragraphs[0].text = ""
+            flow_renderer.apply_centered_page_number_footer(
+                section,
+                page_hint=page.page_number,
+                font_size_pt=10.0,
+                clear_header=True,
+            )
             anchor = doc.add_paragraph()
             anchor.paragraph_format.space_before = Pt(0)
             anchor.paragraph_format.space_after = Pt(0)
@@ -76,11 +83,6 @@ class FidelityDocxRenderer:
                     qn,
                     behind_doc=False,
                 )
-                # Page chrome is already painted in the snapshot. Extra Word
-                # header/footer text/page fields double-print on page 1 chrome.
-                for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
-                    for run in paragraph.runs:
-                        run.font.hidden = True
 
             if has_snapshot and layout in {"positioned", "fidelity"}:
                 # Pure visual delivery: the page picture is the only paint.

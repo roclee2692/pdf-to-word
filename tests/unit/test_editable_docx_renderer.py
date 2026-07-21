@@ -130,7 +130,9 @@ class EditableDocxRendererTests(unittest.TestCase):
             EditableDocxRenderer().render(ir, output, layout="paged")
             doc = Document(output)
             self.assertEqual(doc.sections[0].header.paragraphs[0].text, "Report Header")
-            self.assertEqual(doc.sections[0].footer.paragraphs[0].text, "Page 1")
+            footer_xml = doc.sections[0].footer._element.xml
+            self.assertIn("PAGE", footer_xml)
+            self.assertIn("fldChar", footer_xml)
             self.assertEqual(len(doc.tables), 1)
             self.assertEqual(doc.tables[0].cell(1, 1).text, "2")
             table_xml = doc.tables[0]._tbl.xml
@@ -216,8 +218,11 @@ class EditableDocxRendererTests(unittest.TestCase):
             EditableDocxRenderer().render(ir, output, layout="paged")
             doc = Document(output)
             self.assertEqual(len(doc.sections), 2)
-            self.assertEqual(doc.sections[0].footer.paragraphs[0].text, "1")
-            self.assertEqual(doc.sections[1].footer.paragraphs[0].text, "2")
+            self.assertIn("PAGE", doc.sections[0].footer._element.xml)
+            self.assertIn("PAGE", doc.sections[1].footer._element.xml)
+            self.assertIn("fldChar", doc.sections[0].footer._element.xml)
+            self.assertIn("1", doc.sections[0].footer._element.xml)
+            self.assertIn("2", doc.sections[1].footer._element.xml)
 
     def test_applies_page_geometry_and_bbox_spacing(self):
         from docx import Document

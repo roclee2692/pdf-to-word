@@ -188,7 +188,7 @@ class FidelityDocxRendererTests(unittest.TestCase):
             self.assertIn("wp:anchor", xml)
             self.assertIn("Editable fallback text", xml)
 
-    def test_positioned_mode_preserves_real_header_and_footer_parts(self):
+    def test_positioned_mode_uses_unified_page_number_footer(self):
         from docx import Document
 
         page = self._page()
@@ -224,8 +224,11 @@ class FidelityDocxRendererTests(unittest.TestCase):
                 layout="positioned",
             )
             doc = Document(output)
-            self.assertEqual(doc.sections[0].header.paragraphs[0].text, "Running header")
-            self.assertEqual(doc.sections[0].footer.paragraphs[0].text, "7")
+            # Snapshot modes clear header chrome and always emit a live PAGE field.
+            self.assertEqual(doc.sections[0].header.paragraphs[0].text, "")
+            footer_xml = doc.sections[0].footer._element.xml
+            self.assertIn("PAGE", footer_xml)
+            self.assertIn("fldChar", footer_xml)
 
     def test_long_positioned_line_gets_font_fit_scale(self):
         from docx import Document

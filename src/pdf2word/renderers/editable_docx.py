@@ -561,41 +561,40 @@ class EditableDocxRenderer:
             bottom=min(item.bottom for item in margins),
         )
 
-    def _render_continuous_header_footer(self, section, pages: list[PageIR]) -> None:
-        import re
-
+    def apply_centered_page_number_footer(
+        self,
+        section,
+        *,
+        page_hint: int = 1,
+        font_size_pt: float = 10.0,
+        clear_header: bool = False,
+    ) -> None:
+        """Centered PAGE field for every page including page 1 (never hide first page)."""
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
 
-        header_texts: list[str] = []
-        footer_texts: list[str] = []
-        page_number_like = re.compile(r"^(?:page\s*)?\d+(?:\s*(?:/|of)\s*\d+)?$", re.IGNORECASE)
-        for page in pages:
-            for element in page.elements:
-                if not element.header_footer:
-                    continue
-                text = (element.header_footer.text or "").strip()
-                if not text:
-                    continue
-                if element.header_footer.kind == "header" and text not in header_texts:
-                    header_texts.append(text)
-                if element.header_footer.kind == "footer" and text not in footer_texts:
-                    footer_texts.append(text)
-
         section.header.is_linked_to_previous = False
         section.footer.is_linked_to_previous = False
-        section.header.paragraphs[0].text = " ".join(header_texts[:2])
-
+        try:
+            section.different_first_page_header_footer = False
+        except Exception:
+            pass
+        if clear_header:
+            section.header.paragraphs[0].text = ""
         footer = section.footer.paragraphs[0]
         footer.text = ""
         footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # Keep footer minimal and always numbered. Long conference strings in the
-        # IR footer were drowning the PAGE field on page 1 in some viewers.
+        footer.paragraph_format.space_before = self._pt(0)
+        footer.paragraph_format.space_after = self._pt(0)
         run = footer.add_run()
         try:
             run.font.name = "Times New Roman"
-            run.font.size = self._pt(10)
+            run.font.size = self._pt(font_size_pt)
+            # Soft gray so numbers stay quiet next to body text / page pictures.
+            from docx.shared import RGBColor
+
+            run.font.color.rgb = RGBColor(0x40, 0x40, 0x40)
         except Exception:
             pass
         fld_char_begin = OxmlElement("w:fldChar")
@@ -606,7 +605,7 @@ class EditableDocxRenderer:
         fld_char_separate = OxmlElement("w:fldChar")
         fld_char_separate.set(qn("w:fldCharType"), "separate")
         result = OxmlElement("w:t")
-        result.text = "1"
+        result.text = str(max(1, int(page_hint)))
         fld_char_end = OxmlElement("w:fldChar")
         fld_char_end.set(qn("w:fldCharType"), "end")
         run._r.append(fld_char_begin)
@@ -615,13 +614,23 @@ class EditableDocxRenderer:
         run._r.append(result)
         run._r.append(fld_char_end)
         try:
-            section.different_first_page_header_footer = False
-            section.footer.is_linked_to_previous = False
+            section.footer_distance = self._pt(18)
         except Exception:
             pass
-        for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
-            paragraph.paragraph_format.space_before = self._pt(0)
-            paragraph.paragraph_format.space_after = self._pt(0)
+
+    def _render_continuous_header_footer(self, section, pages: list[PageIR]) -> None:
+        header_texts: list[str] = []
+        for page in pages:
+            for element in page.elements:
+                if not element.header_footer or element.header_footer.kind != "header":
+                    continue
+                text = (element.header_footer.text or "").strip()
+                if text and text not in header_texts:
+                    header_texts.append(text)
+        section.header.is_linked_to_previous = False
+        section.header.paragraphs[0].text = " ".join(header_texts[:2])
+        # Unified sequential page numbers for the whole document (including page 1).
+        self.apply_centered_page_number_footer(section, page_hint=1, font_size_pt=10.0)
 
     def _tighten_default_styles(self, doc, point_factory) -> None:
         """Remove Word's generous default paragraph gaps so bbox spacing can dominate."""
@@ -1376,18 +1385,18 @@ class EditableDocxRenderer:
             for element in page.elements
             if element.header_footer and element.header_footer.kind == "header"
         ]
-        footer_texts = [
-            element.header_footer.text
-            for element in page.elements
-            if element.header_footer and element.header_footer.kind == "footer"
-        ]
         section.header.is_linked_to_previous = False
-        section.footer.is_linked_to_previous = False
         section.header.paragraphs[0].text = " ".join(dict.fromkeys(header_texts))
-        section.footer.paragraphs[0].text = " ".join(dict.fromkeys(footer_texts))
-        for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
+        for paragraph in section.header.paragraphs:
             paragraph.paragraph_format.space_before = self._pt(0)
             paragraph.paragraph_format.space_after = self._pt(0)
+        # Prefer live PAGE field over static PDF footer digits so numbering is
+        # sequential and page 1 is never blank.
+        self.apply_centered_page_number_footer(
+            section,
+            page_hint=getattr(page, "page_number", 1) or 1,
+            font_size_pt=10.0,
+        )
 
     def _apply_paragraph_style(
         self,
