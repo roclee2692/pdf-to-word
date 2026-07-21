@@ -20,10 +20,18 @@ def find_soffice() -> Path | None:
         candidates.append(Path(which))
     candidates.extend(
         [
+            # macOS
             Path("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+            # Linux
             Path("/usr/bin/soffice"),
             Path("/usr/bin/libreoffice"),
             Path("/usr/local/bin/soffice"),
+            Path("/snap/bin/libreoffice"),
+            # Windows (native + common WSL mounts)
+            Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"),
+            Path("/mnt/c/Program Files/LibreOffice/program/soffice.exe"),
+            Path("/mnt/c/Program Files (x86)/LibreOffice/program/soffice.exe"),
         ]
     )
     for candidate in candidates:

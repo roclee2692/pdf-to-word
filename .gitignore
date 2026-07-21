@@ -48,3 +48,12 @@ third_party/**/__pycache__/
 **/.cache/
 **/models/
 *.pdfium
+
+# Local recycle bin (do not publish)
+_recycle_bin/
+
+# QA scratch renders
+workspace/qa-*/
+
+# Loose user drop-in test files at repo root
+/[0-9]*.docx

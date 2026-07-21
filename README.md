@@ -173,3 +173,11 @@ workspace/archive/v1.0.4-paper-90/
 | [docs/QUALITY_REPORT.md](docs/QUALITY_REPORT.md) | MAD 证据 |
 | [docs/DELIVERY_REPORT.md](docs/DELIVERY_REPORT.md) | 交付说明 |
 | [docs/SETUP_LIBREOFFICE.md](docs/SETUP_LIBREOFFICE.md) | LibreOffice |
+
+---
+
+## 平台与上传评测
+
+- 平台支持说明见 [docs/PLATFORM.md](docs/PLATFORM.md)（macOS 已验证；Linux/Windows 有启动脚本与路径探测，未做完整 CI）。
+- 本地回收站：`_recycle_bin/`（**勿上传**）。
+- 最新验收产物：`workspace/archive/v1.0.8-page-numbers/`。

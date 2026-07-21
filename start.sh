@@ -10,7 +10,14 @@ if [ -f .env ]; then
   set +a
 fi
 
-export PDF2WORD_SOFFICE="${PDF2WORD_SOFFICE:-/Applications/LibreOffice.app/Contents/MacOS/soffice}"
+# Auto-detect LibreOffice on macOS / Linux / WSL if not set in .env
+if [ -z "${PDF2WORD_SOFFICE:-}" ] || [ ! -x "${PDF2WORD_SOFFICE}" ]; then
+  if SOFFICE_FOUND="$(./scripts/find_soffice.sh 2>/dev/null)"; then
+    export PDF2WORD_SOFFICE="$SOFFICE_FOUND"
+  else
+    export PDF2WORD_SOFFICE="${PDF2WORD_SOFFICE:-/Applications/LibreOffice.app/Contents/MacOS/soffice}"
+  fi
+fi
 
 LOG_DIR="./logs"
 LOG_FILE="$LOG_DIR/start.log"
