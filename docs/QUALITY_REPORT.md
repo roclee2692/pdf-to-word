@@ -2,25 +2,25 @@
 
 Baseline sample: `NIPS-2017-attention-is-all-you-need-Paper.pdf`.
 
-**Current release `v1.0.3-gui-preview` (2026-07-21)** — GUI comparison preview added and verified against the full 11-page `v1.0.2-mode-specific-rendering` acceptance artifacts.
+**Current release `v1.0.4-paper-90` (2026-07-21)** — portable fixed-layout pages, 220 DPI GUI comparison previews, and visual inspection of pages 1, 7, 8 and 9.
 **Stakeholder summary:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 | Mode | Job | Pages | mean MAD | Overall |
 | --- | --- | ---: | ---: | --- |
-| **`editable`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0737** | **PASS** (CER 0.0022; visual warn) |
-| **`positioned`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0495** | **PASS** (≤0.055) |
-| **`hybrid`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0203** | **PASS** |
-| **`fidelity`** | `workspace/archive/v1.0.2-mode-specific-rendering/` | **11 → 11** | **0.0197** | **PASS** |
+| **`editable`** | `workspace/archive/v1.0.4-paper-90/` | **11 → 11** | **0.0737** | **PASS** (CER 0.0022; visual warn) |
+| **`positioned`** | `workspace/archive/v1.0.4-paper-90/` | **11 → 11** | **0.0194** | **PASS** (portable movable page pictures) |
+| **`hybrid`** | `workspace/archive/v1.0.4-paper-90/` | **11 → 11** | **0.0203** | **PASS** |
+| **`fidelity`** | `workspace/archive/v1.0.4-paper-90/` | **11 → 11** | **0.0197** | **PASS** |
 
-Release archive: `workspace/archive/v1.0.2-mode-specific-rendering/` (`docx/`, `validation/`, `validation_report.json`, `preflight/`, `ir/`).
-Unit tests: **46 OK** (1 skipped). GUI smoke archive: `workspace/archive/gui-smoke-20260720/`.
+Release archive: `workspace/archive/v1.0.4-paper-90/` (`docx/`, `validation/`, `preflight/`, `ir/`, `RELEASE_METRICS.json`).
+Unit tests: **47 OK** (1 skipped). GUI smoke covers all four modes and asserts preview width ≥ 1800 px.
 
 ## Current Mode Contract
 
 | Mode | Primary contract | Formula policy | Table policy |
 | --- | --- | --- | --- |
 | `editable` | Text and object editing | Editable runs with superscript/subscript; simple OMML plus hidden text fallback; complex formulas remain text | Native editable Word table with full horizontal and vertical borders; repeatable header and no row splitting |
-| `positioned` | PDF-like placement with native objects | Source-coordinate formula crop plus hidden searchable text | Floating native Word table with fixed column geometry and full grid borders |
+| `positioned` | Portable fixed-layout visual delivery | Formula is painted by the source-page picture | Source table is painted exactly; the page picture can be selected and moved |
 | `hybrid` | Snapshot proof plus retained structure | Snapshot paints the formula; hidden editable layer remains in the DOCX | Native table grid remains visible over the snapshot |
 | `fidelity` | Snapshot proof | Snapshot paints formula/font/image/color | Snapshot keeps source horizontal rules; precise vertical DrawingML separators improve column readability without adding blank table rows |
 
@@ -50,14 +50,14 @@ Phase 4 / historical regression rows below are retained for audit.
 - The page 3 embedded image is extracted from its PDF image stream at `1520 x 2239` pixels instead of only using a page crop.
 - Table 2 is recovered as 12 rows x 5 columns with merged two-level headers, scientific-notation cell grouping, fixed widths, and inferred borders; Table 3 is recovered as 8 rows x 13 columns with multiline numeric cells and merged label coverage.
 - Page 9 multiline numeric cells retain source line breaks; synthetic merged-cell coverage is represented as `None` placeholders plus `row_span`/`col_span` in the IR.
-- `positioned` mode now emits native DrawingML text boxes and image anchors. The page 3 embedded figure remains a replaceable Word picture rather than a VML drawing.
+- `positioned` now emits one visible, unlocked page-relative Word picture per source page. This avoids blank pages caused by editor-specific DrawingML textbox support and makes the whole fixed page selectable/movable.
 - Source font faces and grayscale text colors are retained on individual IR runs; normalized desktop families remain the current Word fallback policy.
 - `validation/preflight.json` records native availability, preferred/selected parser per page, and the clone/import status of MinerU, Docling, and PaddleOCR.
 - Post-render `ValidationEngine` writes `validation/validation_report.json` + `.md` for every conversion (disable with `--no-validate`).
 - Baseline page 1 and table-heavy pages: structure/text/table/image layers pass with document-order IR↔DOCX character error rate below `0.001`.
 - Current 11-page editable conversion structure/text/table/image layers pass (CER `0.0022`, digit error rate `0.0`); the page-count gate is `11 → 11`, with visual warnings on pages 2, 6, and 8.
 - Display formulas on the Attention sample retain source-coordinate raster crops in `positioned`, `hybrid`, and `fidelity`; the learning-rate formula on page 7 was visually verified. `editable` renders its formula run stream with superscript/subscript styling and keeps a hidden plain-text fallback for structured OMML.
-- Table 2 and Table 3 in all four delivered outputs have readable column separation: native modes use full cell grids, while `fidelity` overlays only precise vertical separators over the source snapshot.
+- Table 2 and Table 3 are visually exact in `positioned/hybrid/fidelity`; `editable` uses native Word tables with full grids and editable cell text.
 - PySide6 GUI conversion smoke now opens a two-pane comparison window for every mode: the left pane loads the selected source PDF page and the right pane loads the matching LibreOffice-rendered DOCX page; the dialog also exposes page count, MAD, CER and editability policy.
 
 ## Partially Implemented
@@ -73,6 +73,17 @@ Phase 4 / historical regression rows below are retained for audit.
 ## Visual loop (LibreOffice) — 2026-07-20
 
 LibreOffice is installed at `/Applications/LibreOffice.app/Contents/MacOS/soffice` and wired via `PDF2WORD_SOFFICE`.
+
+### Current portable acceptance (`v1.0.4-paper-90`)
+
+| Mode | Source pages | Rendered pages | mean MAD | Gate |
+| --- | ---: | ---: | ---: | --- |
+| `editable` | 11 | 11 | **0.0737** | PASS; CER `0.0022`, native tables |
+| `positioned` | 11 | 11 | **0.0194** | PASS; movable visible page pictures |
+| `hybrid` | 11 | 11 | **0.0203** | PASS; visible snapshot + hidden layer |
+| `fidelity` | 11 | 11 | **0.0197** | PASS; visual archive |
+
+GUI comparison assets are rendered at **220 DPI** (`1870×2420` for the baseline paper), replacing the earlier 120 DPI (`1020×1320`) preview.
 
 ### Baseline final acceptance rerun (`v1.0.2-mode-specific-rendering`)
 
@@ -121,13 +132,13 @@ The reproducible copy of these DOCX files and reports is `workspace/archive/v1.0
 
 GUI smoke archive (earlier same day): `workspace/archive/gui-smoke-20260720/` (PySide6 `6.11.1`, four modes, all `passed=true`, 11/11 pages).
 
-### DrawingML workstream (MAD path)
+### Historical DrawingML workstream (MAD path)
 
-Delivered modes:
+The following rows describe the pre-v1.0.4 native-positioning experiments retained for audit:
 
 1. **`positioned`** — `wp:anchor` + `wps:txbx` **per-source-line** text boxes, floating tables (`tblpPr`), anchored images and full native table grids. Final mean MAD **0.0495** (≤0.055). IR `1.5` stores `line_bboxes` and source word-gap flags for pixel anchoring.
-2. **`hybrid`** — full-page snapshot with `behindDoc=1` + DrawingML editable layer using `w:vanish`; native table borders remain painted. Final mean MAD **0.0203**.
-3. **`fidelity`** — snapshot paint via the same behind-doc anchor plus precise vertical table separator DrawingML. Final mean MAD **0.0197**.
+2. **`hybrid`** — historical full-page snapshot with `behindDoc=1` + DrawingML editable layer using `w:vanish`. v1.0.4 changed the snapshot to a visible foreground page anchor for portability.
+3. **`fidelity`** — historical behind-doc snapshot plus precise vertical separators. v1.0.4 uses a visible page anchor to avoid blank pages in other editors.
 
 Positioned MAD path (0.061 → 0.048):
 
@@ -170,7 +181,7 @@ Acceptance now:
 | Mode | Edit surface | Pixel authority | Typical MAD |
 | --- | --- | --- | ---: |
 | `editable` | Flow paragraphs + real tables | Reflow paint | **0.0737** |
-| `positioned` | DrawingML objects + real tables | DrawingML paint | **0.0495** |
+| `positioned` | Movable full-page Word pictures | Source-page paint | **0.0194** |
 | `hybrid` | DrawingML (vanished) | Snapshot behind + visible table grid | **0.0203** |
 | `fidelity` | Snapshot + separator lines | Snapshot + vertical table separators | **0.0197** |
 
@@ -178,7 +189,7 @@ Acceptance now:
 
 - Pure `positioned` page-2 residual (~0.064) still trails hybrid; further gains need font-metric matching / kerning.
 - Making hybrid text visible while keeping snapshot MAD (would double-paint unless text is transparent or selectively hidden).
-- `positioned` is not yet a pixel-accurate editable renderer: the latest line-fit guard reduces long-text wrapping/clipping risk, but font-metric and kerning residuals remain. The page 9 native floating table retains logical rows, marks the first row as a repeating header, and prevents row splitting; header/cell metric matching and cross-editor checks remain. The native image anchor path is verified, but rotation/cropping needs cross-editor checks.
+- `positioned` is intentionally fixed-layout rather than text-editable. Per-character editing belongs to `editable`; its remaining gaps are complex OMML formulas, font-metric matching and cross-editor checks.
 - Cross-page table continuation.
 - OCR-based scanned page recovery.
 - PySide6 `6.11.1` is installed. GUI smoke (Qt offscreen + native macOS Cocoa) completed without crash; `v1.0.0-mvp` freezes the CLI four-mode metrics above. Cross-platform desktop packaging remains a follow-up.

@@ -10,9 +10,9 @@ class FidelityDocxRenderer:
     """DrawingML-positioned editable objects, optional fidelity snapshot layer.
 
     layout:
-      - positioned: native DrawingML text boxes / floating tables / anchored images
+      - positioned: portable movable page snapshot with retained hidden structure
       - fidelity: source-page snapshot plus precise vertical table separators (pixel proof)
-      - hybrid: snapshot behind the document + DrawingML editable layer (vanished for paint)
+      - hybrid: visible snapshot + hidden DrawingML searchable layer
     """
 
     name = "fidelity_docx"
@@ -59,19 +59,14 @@ class FidelityDocxRenderer:
             # snapshot and positioned body are separate from this semantic
             # layer, so copying the IR text does not require painting it twice.
             flow_renderer._render_page_header_footer(section, page)
-            if layout in {"hybrid", "fidelity"}:
-                for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
-                    for run in paragraph.runs:
-                        run.font.hidden = True
-
             anchor = doc.add_paragraph()
             anchor.paragraph_format.space_before = Pt(0)
             anchor.paragraph_format.space_after = Pt(0)
             anchor.paragraph_format.line_spacing = Pt(1)
-
             has_snapshot = bool(page.background_image_path)
-            # hybrid/fidelity paint the snapshot; hybrid keeps DrawingML text hidden from paint.
-            if has_snapshot and layout in {"fidelity", "hybrid"}:
+            if has_snapshot and layout in {"positioned", "hybrid", "fidelity"}:
+                # A visible page anchor is supported by Word/WPS/LibreOffice;
+                # behindDoc=1 is not portable and can make the whole page vanish.
                 self._append_background_image(
                     doc,
                     anchor,
@@ -79,8 +74,14 @@ class FidelityDocxRenderer:
                     page.background_image_path,
                     OxmlElement,
                     qn,
-                    behind_doc=True,
+                    behind_doc=False,
                 )
+
+            if layout in {"hybrid", "fidelity"}:
+                for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
+                    for run in paragraph.runs:
+                        run.font.hidden = True
+
             if layout == "fidelity" and has_snapshot:
                 # Keep the source snapshot as the visual proof, but add
                 # precise vertical separators so every delivered mode has
@@ -93,7 +94,15 @@ class FidelityDocxRenderer:
                 self._overlay_visible = True
                 continue
 
-            # positioned: always paint DrawingML. hybrid: emit editable objects but vanish text.
+            if layout == "positioned" and has_snapshot:
+                # Fixed-layout delivery is intentionally snapshot-first. The
+                # full page remains a selectable/movable Word picture and the
+                # source-page structure is available through IR, avoiding
+                # editor-specific blank DrawingML canvases.
+                continue
+
+            # No snapshot fallback: emit native DrawingML. Hybrid keeps the
+            # object layer hidden beneath its visible page snapshot.
             self._overlay_visible = layout != "hybrid"
             self._vanish_text = layout == "hybrid"
             for element in page.ordered_elements():

@@ -1,0 +1,31 @@
+{
+  "release": "v1.0.4-paper-90",
+  "sample": "NIPS-2017-attention-is-all-you-need-Paper.pdf",
+  "source_pages": 11,
+  "gui_preview_dpi": 220,
+  "gui_preview_pixels": "1870x2420",
+  "modes": {
+    "editable": {
+      "rendered_pages": 11,
+      "mean_mad": 0.0737,
+      "character_error_rate": 0.0022,
+      "passed": true
+    },
+    "positioned": {
+      "rendered_pages": 11,
+      "mean_mad": 0.0194,
+      "text_gate": "skipped_fixed_layout",
+      "passed": true
+    },
+    "hybrid": {
+      "rendered_pages": 11,
+      "mean_mad": 0.0203,
+      "passed": true
+    },
+    "fidelity": {
+      "rendered_pages": 11,
+      "mean_mad": 0.0197,
+      "passed": true
+    }
+  }
+}

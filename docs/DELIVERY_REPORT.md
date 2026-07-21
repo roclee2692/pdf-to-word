@@ -3,9 +3,9 @@
 | 字段 | 内容 |
 | --- | --- |
 | 产品名 | PDF-to-Word（包名 `pdf2word-agent`） |
-| 版本 | **v1.0.3-gui-preview** |
+| 版本 | **v1.0.4-paper-90** |
 | 交付日期 | 2026-07-21 |
-| Git 标签 | `v1.0.3-gui-preview` |
+| Git 标签 | `v1.0.4-paper-90` |
 | 基线样本 | `NIPS-2017-attention-is-all-you-need-Paper.pdf`（11 页） |
 | 许可 | Apache-2.0 |
 
@@ -39,27 +39,27 @@
 | 方案 | 模式 | 含义 | 基线 mean MAD | 页数 | 推荐场景 |
 | --- | --- | --- | ---: | ---: | --- |
 | **编辑优先** | `editable` | 流式段落、真表格、软分页、公式文字 fallback | **0.0737** | 11→11 | 复制改写、长文重排 |
-| **排版优先** | `positioned` | DrawingML 文本框 / 浮动表 / 锚定图 | **0.0495** | 11→11 | 原生对象 + 版面接近原稿 |
-| **折中验收** | `hybrid` | 页图 behindDoc + 隐藏对象层（vanish） | **0.0203** | 11→11 | 像素优先，包内仍有对象 |
+| **固定版高保真** | `positioned` | 可移动的整页 Word 图片 | **0.0194** | 11→11 | 论文逐页校对，避免 Office/WPS 空白 |
+| **折中验收** | `hybrid` | 可见页图 + 隐藏对象层（vanish） | **0.0203** | 11→11 | 像素优先，包内仍有对象 |
 | **保真归档** | `fidelity` | 页图快照 + 精确竖向表格分隔线 | **0.0197** | 11→11 | 外观证明 / 归档观感 |
 
 关键实现决策：
 
-- LibreOffice 下使用 **DrawingML**（`wp:anchor` + `wps:txbx`），**不用** `w:framePr`（会导致页数崩溃）。  
+- 固定版使用可见、未锁定的 `wp:anchor` 整页图片；不再使用 `behindDoc=1`，避免 Word/WPS 类编辑器显示空白。
 - `editable` 采用 **连续 section + 软分页**；历史「每页硬分节」曾把 11 页撑到 21 页。  
-- `positioned` 按源行拆框，IR `line_bboxes`（schema 1.5）逐行锚定；公式保留源坐标裁剪图和隐藏 fallback。
-- 四种输出明确区分：`editable` 负责文字修改，`positioned` 负责原生对象定位，`hybrid` 负责快照对照，`fidelity` 负责快照归档；Table 2/3 均有可读的列分隔线。
+- `positioned` 以可移动整页图片作为视觉权威；原有 `line_bboxes` 和结构仍保留在 IR，供 editable/后续修复使用。
+- 四种输出明确区分：`editable` 负责文字修改，`positioned` 负责固定版高保真，`hybrid` 负责快照对照，`fidelity` 负责快照归档；Table 2/3 在固定版中按源页显示，在 editable 中为原生表格。
 
 ### 2.2 验证与门禁
 
-| 门禁 | v1.0.2-mode-specific-rendering 基线结果；v1.0.3 增加 GUI 对照预览 |
+| 门禁 | v1.0.4-paper-90 结果 |
 | --- | --- |
 | 页数 ≈ 源页 | **11 → 11**（四模式） |
 | 文本 CER（`editable`） | **0.0022**（数字错误率 0.0） |
-| `positioned` mean MAD ≤ 0.055 | **0.0495** 达标 |
+| `positioned` mean MAD ≤ 0.055 | **0.0194** 达标 |
 | `hybrid` / `fidelity` 像素 | **0.0203** / **0.0197** |
 | 结构 / 表 / 图（`editable`） | pass |
-| 单元 + 集成测试 | **46 OK**（1 skipped） |
+| 单元 + 集成测试 | **47 OK**（1 skipped） |
 | GUI 烟测（macOS Cocoa） | 预检 + 四模式 + 左右对照预览 + Open output，无闪退 |
 
 每份产物默认写入：
@@ -77,7 +77,7 @@
 - `FidelityDocxRenderer`：`positioned` / `hybrid` / `fidelity`
 - CLI：`pdf2word convert`；GUI：`pdf2word gui`（PySide6）  
 - GUI 转换后自动打开源 PDF / DOCX 左右对照预览，可逐页切换并显示页数、MAD、CER 与编辑性边界；实际编辑通过默认 Word/WPS/LibreOffice 打开 DOCX。
-- 本地 job workspace；发布证据 `workspace/archive/v1.0.2-mode-specific-rendering/`
+- 本地 job workspace；发布证据 `workspace/archive/v1.0.4-paper-90/`
 
 更细的工程清单见 [MVP.md](MVP.md)；历史 MAD 迭代见 [QUALITY_REPORT.md](QUALITY_REPORT.md)。
 
@@ -90,7 +90,7 @@
 | Mode | Pages | mean MAD | Overall |
 | --- | ---: | ---: | --- |
 | **editable** | 11 → 11 | **0.0737** | PASS（CER 0.0022；visual warn） |
-| **positioned** | 11 → 11 | **0.0495** | PASS（≤0.055） |
+| **positioned** | 11 → 11 | **0.0194** | PASS（固定版页图） |
 | **hybrid** | 11 → 11 | **0.0203** | PASS |
 | **fidelity** | 11 → 11 | **0.0197** | PASS |
 
@@ -99,7 +99,7 @@
 发布归档内容：
 
 ```text
-workspace/archive/v1.0.2-mode-specific-rendering/
+workspace/archive/v1.0.4-paper-90/
   docx/{editable,positioned,hybrid,fidelity}.docx
   validation/*.validation_report.{json,md}
   validation/preflight.json
@@ -171,7 +171,7 @@ git push origin v1.0.0-mvp
 | Docling 模型缓存 / MinerU·PaddleOCR 可执行运行时 | 克隆可探测，运行时依赖/模型未齐 |
 | 扫描件 OCR、跨页表真实拆分 | 未做 |
 | 复杂嵌套公式全量 OMML | 简单结构化 + 文本/OMML fallback |
-| pure positioned 单页残差（如第 2 页 ~0.064） | 均值已达标，单页可继续压 |
+| positioned 逐字编辑 | 固定版刻意不提供；逐字编辑使用 editable |
 | hybrid 可见文字 + 快照级 MAD | 需额外分层策略 |
 | 跨平台桌面打包 | 仅 macOS Cocoa 烟测 |
 
@@ -180,7 +180,7 @@ git push origin v1.0.0-mvp
 ## 6. 建议的后续优先级
 
 1. **远程备份：** 建 Git 远程并 `push` 标签 `v1.0.0-mvp`；网盘再存一份 `dist/releases/*`。  
-2. **positioned 余量：** 第 2 页字距/字模，进一步压 MAD。  
+2. **editable 公式：** 第 7 页复杂上下标和分式继续转为稳定 OMML/可编辑 fallback。  
 3. **外置解析：** Docling 模型 → MinerU / PaddleOCR（paddlex 等）。  
 4. **公式与扫描件：** OMML 边角、OCR 兜底。  
 5. **跨页表：** 重复表头 + 真实拆分。  
@@ -190,4 +190,4 @@ git push origin v1.0.0-mvp
 
 ## 7. 交接一句话
 
-主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管文字修改，`positioned` 管原生对象定位（≈0.0495），`hybrid` 管快照对照（≈0.0203），`fidelity` 管保真归档（≈0.0197）。v1.0.3 增加 GUI 左右对照预览；外置 OCR/解析与 Agent 尚未闭环；环境依赖 LibreOffice + `PDF2WORD_SOFFICE`（可用 `.env` / `./start.sh`）；回归样本为 Attention 11 页论文；版本以 Git 标签 **`v1.0.3-gui-preview`** 冻结。
+主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管文字修改，`positioned` 管固定版高保真（≈0.0194），`hybrid` 管快照对照（≈0.0203），`fidelity` 管保真归档（≈0.0197）。v1.0.4 增加 220 DPI GUI 对照预览和跨编辑器可见页图；外置 OCR/解析与 Agent 尚未闭环；版本以 Git 标签 **`v1.0.4-paper-90`** 冻结。

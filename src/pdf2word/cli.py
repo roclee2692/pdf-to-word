@@ -53,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["editable", "positioned", "fidelity", "hybrid"],
         default="positioned",
         help=(
-            "positioned=native DrawingML (default deliverable) | "
+            "positioned=portable fixed-layout page pictures (default) | "
             "editable=flow | "
             "hybrid/fidelity=pixel-proof tools (not primary editable deliverables)"
         ),

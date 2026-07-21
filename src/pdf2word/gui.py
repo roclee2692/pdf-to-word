@@ -123,9 +123,35 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
                         visual_validate=True,
                     ),
                 )
+                self._prepare_high_resolution_preview(result)
                 self.completed.emit(result)
             except Exception as exc:  # pragma: no cover - exercised by the GUI runtime
                 self.failed.emit(f"{type(exc).__name__}: {exc}")
+
+        def _prepare_high_resolution_preview(self, result: object) -> None:
+            """Create readable comparison assets without changing validation thresholds."""
+            try:
+                from pdf2word.validation.visual import (
+                    convert_docx_to_pdf,
+                    find_soffice,
+                    render_pdf_pages,
+                )
+
+                validation_dir = getattr(getattr(result, "workspace", None), "validation_dir", None)
+                output_path = Path(getattr(result, "output_path"))
+                if validation_dir is None or not output_path.exists():
+                    return
+                preview_dir = Path(validation_dir) / "preview"
+                render_pdf_pages(self.pdf_path, preview_dir / "source_pages", dpi=220)
+                soffice = find_soffice()
+                if soffice is None:
+                    return
+                rendered_pdf = convert_docx_to_pdf(output_path, preview_dir / "docx_pdf", soffice)
+                render_pdf_pages(rendered_pdf, preview_dir / "docx_pages", dpi=220)
+            except Exception:
+                # Conversion and validation already have their own error path;
+                # preview generation may fall back to the lower-resolution QA assets.
+                return
 
     class PreviewPane(QWidget):
         """A page image that fits the pane while remaining scrollable."""
@@ -203,7 +229,7 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             image_count = element_names.count("ImageElement")
             editability = {
                 "editable": "正文、原生表格可编辑；复杂公式以文字/上下标 fallback 保留",
-                "positioned": "原生定位对象可编辑；部分公式使用视觉裁剪图，不能承诺完全可编辑",
+                "positioned": "固定版整页图像可选择、可移动；正文文字不可逐字编辑",
                 "hybrid": "视觉快照优先；对象层隐藏，仅用于检索/替换，不是主编辑版本",
                 "fidelity": "视觉快照优先，不作为主要可编辑版本",
             }.get(mode, "请打开 DOCX 在 Word/WPS/LibreOffice 中检查编辑")
@@ -254,7 +280,16 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             index = max(0, page_index - 1)
             source_page = self._pages[index] if index < len(self._pages) else None
             validation_dir = getattr(getattr(self._result, "workspace", None), "validation_dir", None)
-            visual_dir = Path(validation_dir) / "visual" if validation_dir else None
+            root_dir = Path(validation_dir) if validation_dir else None
+            preview_dir = root_dir / "preview" if root_dir else None
+            if not (
+                preview_dir
+                and (preview_dir / "source_pages" / f"page_{source_page:03d}.png").exists()
+                if source_page
+                else False
+            ):
+                preview_dir = root_dir / "visual" if root_dir else None
+            visual_dir = preview_dir
             source_path = (
                 visual_dir / "source_pages" / f"page_{source_page:03d}.png"
                 if visual_dir and source_page
@@ -295,14 +330,15 @@ def launch_gui(on_ready: Callable[[object], None] | None = None) -> int:
             pages_edit.setPlaceholderText("Blank = all pages; example: 1,3-5")
             mode_combo = QComboBox()
             # Deliverable defaults first; hybrid/fidelity are pixel-proof tools only.
-            mode_combo.addItem("positioned — 可编辑交付 (DrawingML)", "positioned")
+            mode_combo.addItem("positioned — 固定版高保真（可移动页图）", "positioned")
             mode_combo.addItem("editable — 流式可编辑", "editable")
             mode_combo.addItem("hybrid — 像素校对(非主交付)", "hybrid")
             mode_combo.addItem("fidelity — 像素证明(非主交付)", "fidelity")
             mode_combo.setCurrentIndex(0)
             mode_combo.setToolTip(
-                "positioned/editable: native editable objects.\n"
-                "hybrid/fidelity: pixel-proof tools (page snapshots), not primary editable deliverables."
+                "positioned: fixed-layout movable page picture.\n"
+                "editable: native paragraphs and tables.\n"
+                "hybrid/fidelity: visual proof tools, not primary editable deliverables."
             )
 
             output_edit = QLineEdit()

@@ -79,6 +79,12 @@ class GuiSmokeTests(unittest.TestCase):
                 if preview._source_pane._source_pixmap.isNull() or preview._output_pane._source_pixmap.isNull():
                     fail(f"{current_mode}: comparison preview did not load both page images")
                     return
+                if preview._source_pane._source_pixmap.width() < 1800:
+                    fail(
+                        f"{current_mode}: source preview is still low resolution "
+                        f"({preview._source_pane._source_pixmap.width()} px)"
+                    )
+                    return
                 # Editable formulas preserve caret/underscore structure as
                 # superscript/subscript runs; allow the small text-reader
                 # delta while keeping the smoke test strict on content loss.

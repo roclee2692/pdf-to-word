@@ -52,14 +52,21 @@ class ValidationEngine:
         if non_flow_layout:
             # Snapshot/positioned layouts keep content in drawing objects that
             # python-docx body iteration cannot fully inspect.
-            if mode in {"positioned", "hybrid"} or opts.strict:
+            snapshot_only_positioned = mode == "positioned" and all(
+                bool(page.background_image_path) for page in document_ir.pages
+            )
+            if ((mode in {"positioned", "hybrid"} or opts.strict) and not snapshot_only_positioned):
                 text_summary, text_issues = validate_drawing_text(document_ir, docx_path, mode=mode)
             else:
                 text_summary = LayerSummary(
                     status="skipped",
                     issue_count=0,
                     metrics={"reason": f"{mode}_layout_mode"},
-                    reason=f"{mode} layout keeps text in native positioned drawing objects",
+                    reason=(
+                        f"{mode} layout is a portable page snapshot; text remains in IR"
+                        if snapshot_only_positioned
+                        else f"{mode} layout keeps text in native positioned drawing objects"
+                    ),
                 )
             table_summary = LayerSummary(
                 status="skipped",

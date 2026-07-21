@@ -146,7 +146,7 @@ class ConversionService:
                     "fallback_reason": convert_warnings[0] if convert_warnings else None,
                 }
 
-            if options.mode in {"fidelity", "hybrid"} and hasattr(backend, "render_page_snapshot"):
+            if options.mode in {"positioned", "fidelity", "hybrid"} and hasattr(backend, "render_page_snapshot"):
                 snapshot_dir = workspace.parser_outputs_dir / "page_snapshots"
                 pages_with_snapshots = []
                 for page in document_ir.pages:

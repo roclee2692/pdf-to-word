@@ -56,8 +56,28 @@ class FidelityDocxRendererTests(unittest.TestCase):
             doc = Document(output)
             xml = doc.element.body.xml
             self.assertIn("wp:anchor", xml)
-            self.assertIn('behindDoc="1"', xml)
+            self.assertIn('behindDoc="0"', xml)
+            self.assertIn('locked="0"', xml)
             self.assertNotIn("Editable fallback text", xml)
+
+    def test_positioned_snapshot_is_visible_and_uses_no_editor_specific_textboxes(self):
+        from PIL import Image
+        from docx import Document
+
+        with tempfile.TemporaryDirectory() as tmp:
+            background = Path(tmp) / "page.png"
+            Image.new("RGB", (1224, 1584), "white").save(background)
+            output = Path(tmp) / "positioned.docx"
+            FidelityDocxRenderer().render(
+                DocumentIR(document=DocumentMeta(page_count=1), pages=[self._page(str(background))]),
+                output,
+                layout="positioned",
+            )
+            xml = Document(output).element.body.xml
+            self.assertIn('behindDoc="0"', xml)
+            self.assertIn('locked="0"', xml)
+            self.assertIn("pic:pic", xml)
+            self.assertNotIn("wps:txbx", xml)
 
     def test_snapshot_mode_adds_vertical_table_grid_overlay(self):
         from PIL import Image
@@ -111,7 +131,7 @@ class FidelityDocxRendererTests(unittest.TestCase):
                 layout="hybrid",
             )
             xml = Document(output).element.body.xml
-            self.assertIn('behindDoc="1"', xml)
+            self.assertIn('behindDoc="0"', xml)
             self.assertIn("wps:txbx", xml)
             self.assertIn("Editable fallback text", xml)
             self.assertIn("w:vanish", xml)
