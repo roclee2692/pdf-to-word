@@ -2,7 +2,7 @@
 
 The first implementation deliberately avoids Agent repair.
 
-**Release:** `v1.0.2-mode-specific-rendering` (2026-07-20)
+**Release:** `v1.0.3-gui-preview` (2026-07-21; baseline artifacts remain under `v1.0.2-mode-specific-rendering`)
 **Full delivery write-up:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 ## Implemented

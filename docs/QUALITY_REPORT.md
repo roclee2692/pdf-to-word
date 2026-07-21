@@ -2,7 +2,7 @@
 
 Baseline sample: `NIPS-2017-attention-is-all-you-need-Paper.pdf`.
 
-**Current release `v1.0.2-mode-specific-rendering` (2026-07-20)** — full 11-page CLI E2E with LibreOffice visual loop, formula fallback verification, and full table-grid verification.
+**Current release `v1.0.3-gui-preview` (2026-07-21)** — GUI comparison preview added and verified against the full 11-page `v1.0.2-mode-specific-rendering` acceptance artifacts.
 **Stakeholder summary:** [DELIVERY_REPORT.md](DELIVERY_REPORT.md)
 
 | Mode | Job | Pages | mean MAD | Overall |
@@ -74,7 +74,7 @@ Phase 4 / historical regression rows below are retained for audit.
 
 LibreOffice is installed at `/Applications/LibreOffice.app/Contents/MacOS/soffice` and wired via `PDF2WORD_SOFFICE`.
 
-### Current final acceptance rerun (`v1.0.2-mode-specific-rendering`)
+### Baseline final acceptance rerun (`v1.0.2-mode-specific-rendering`)
 
 | Mode | Final job | Source pages | Rendered pages | Delta | mean MAD | Text/structure gate |
 | --- | --- | ---: | ---: | ---: | ---: | --- |

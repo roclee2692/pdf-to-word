@@ -2,7 +2,7 @@
 
 **一句话：** 本地 PDF 转可编辑 Word（`.docx`），支持 **4 种模式**，兼顾**可编辑性**与**像素级校对**。
 
-版本：`v1.0.2-mode-specific-rendering` · Python ≥ 3.11 · 许可 Apache-2.0
+版本：`v1.0.3-gui-preview` · Python ≥ 3.11 · 许可 Apache-2.0
 
 ---
 

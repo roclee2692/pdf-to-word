@@ -3,9 +3,9 @@
 | 字段 | 内容 |
 | --- | --- |
 | 产品名 | PDF-to-Word（包名 `pdf2word-agent`） |
-| 版本 | **v1.0.2-mode-specific-rendering** |
-| 交付日期 | 2026-07-20 |
-| Git 标签 | `v1.0.2-mode-specific-rendering` |
+| 版本 | **v1.0.3-gui-preview** |
+| 交付日期 | 2026-07-21 |
+| Git 标签 | `v1.0.3-gui-preview` |
 | 基线样本 | `NIPS-2017-attention-is-all-you-need-Paper.pdf`（11 页） |
 | 许可 | Apache-2.0 |
 
@@ -52,7 +52,7 @@
 
 ### 2.2 验证与门禁
 
-| 门禁 | v1.0.2-mode-specific-rendering 结果 |
+| 门禁 | v1.0.2-mode-specific-rendering 基线结果；v1.0.3 增加 GUI 对照预览 |
 | --- | --- |
 | 页数 ≈ 源页 | **11 → 11**（四模式） |
 | 文本 CER（`editable`） | **0.0022**（数字错误率 0.0） |
@@ -122,7 +122,7 @@ cp .env.example .env     # 配置 LibreOffice 路径
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 ```
 
-锁定依赖见根目录 `requirements.txt`、`requirements-gui.txt`、`pyproject.toml`（版本 **1.0.0**）。
+锁定依赖见根目录 `requirements.txt`、`requirements-gui.txt`、`pyproject.toml`（当前包版本 **1.0.3**；依赖锁仍标注 v1.0.0-mvp 以保持环境复现兼容）。
 
 ### 4.2 常用命令
 
@@ -190,4 +190,4 @@ git push origin v1.0.0-mvp
 
 ## 7. 交接一句话
 
-主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管文字修改，`positioned` 管原生对象定位（≈0.0495），`hybrid` 管快照对照（≈0.0203），`fidelity` 管保真归档（≈0.0197）。外置 OCR/解析与 Agent 尚未闭环；环境依赖 LibreOffice + `PDF2WORD_SOFFICE`（可用 `.env` / `./start.sh`）；回归样本为 Attention 11 页论文；版本以 Git 标签 **`v1.0.2-mode-specific-rendering`** 冻结。
+主链路已从「文本落 Word」做到 **可验证的工业门禁**（页数、CER、MAD）：`editable` 管文字修改，`positioned` 管原生对象定位（≈0.0495），`hybrid` 管快照对照（≈0.0203），`fidelity` 管保真归档（≈0.0197）。v1.0.3 增加 GUI 左右对照预览；外置 OCR/解析与 Agent 尚未闭环；环境依赖 LibreOffice + `PDF2WORD_SOFFICE`（可用 `.env` / `./start.sh`）；回归样本为 Attention 11 页论文；版本以 Git 标签 **`v1.0.3-gui-preview`** 冻结。
