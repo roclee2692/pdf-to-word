@@ -26,9 +26,10 @@ class _FlowGeometry:
 
 @dataclass(frozen=True)
 class _PackProfile:
+    # Balanced defaults: readable academic layout while keeping ≈ source page count.
     font_scale: float = 0.96
-    space_scale: float = 0.32
-    image_max_height_frac: float = 0.55
+    space_scale: float = 0.48
+    image_max_height_frac: float = 0.40
 
 
 @dataclass(frozen=True)
@@ -254,16 +255,13 @@ class EditableDocxRenderer:
                 else:
                     table_height += element.table.row_count * 14.0
         if tables and table_height >= page.height_pt * 0.28:
-            # Wide STEM tables inflate Word row boxes more than PDF ink boxes.
-            profile = _PackProfile(font_scale=0.80, space_scale=0.08, image_max_height_frac=0.18)
+            profile = _PackProfile(font_scale=0.90, space_scale=0.28, image_max_height_frac=0.26)
         elif column_count > 1 or len(body) >= 28 or formulas >= 3 or images >= 2 or short >= 12:
-            # Multi-column / dense STEM: pack hard enough to hold one LO page.
-            profile = _PackProfile(font_scale=0.82, space_scale=0.12, image_max_height_frac=0.20)
+            profile = _PackProfile(font_scale=0.92, space_scale=0.34, image_max_height_frac=0.30)
         elif len(body) >= 20 or formulas >= 2 or short >= 10:
-            profile = _PackProfile(font_scale=0.90, space_scale=0.28, image_max_height_frac=0.32)
+            profile = _PackProfile(font_scale=0.94, space_scale=0.42, image_max_height_frac=0.36)
         else:
-            # Simple pages: slightly open leading for visual fill without blowing page count.
-            profile = _PackProfile(font_scale=0.96, space_scale=0.48, image_max_height_frac=0.45)
+            profile = _PackProfile(font_scale=0.97, space_scale=0.55, image_max_height_frac=0.44)
         return self._fit_pack_profile(page, profile)
 
     def _detect_columns(self, page: PageIR) -> tuple[int, list[float]]:
@@ -295,7 +293,7 @@ class EditableDocxRenderer:
         return max(0, len(splits) - 1)
 
     def _fit_pack_profile(self, page: PageIR, profile: _PackProfile) -> _PackProfile:
-        """Tighten only if overflowing; otherwise restore source-like spacing for MAD."""
+        """Mild overflow protection only — never crush text into unreadable density."""
         margins = self._compute_margins(page)
         usable = max(120.0, page.height_pt - margins.top - margins.bottom)
         font_scale = profile.font_scale
@@ -303,26 +301,26 @@ class EditableDocxRenderer:
         image_frac = profile.image_max_height_frac
         column_count, _ = self._detect_columns(page)
         multi = column_count > 1
-        # Fit first (protect 11-page gate), then gently open simple under-filled pages.
-        target = 0.90 if multi else 0.94
-        min_font = 0.74 if multi else 0.82
-        for _ in range(14):
+        # Keep ≈1 Word page per PDF page without returning to 0.80× crushed text.
+        target = 0.93 if multi else 0.96
+        min_font = 0.86 if multi else 0.88
+        for _ in range(12):
             estimated = self._estimate_body_height_pt(
                 page, margins, font_scale, space_scale, image_frac, multi_column=multi
             )
             if estimated <= usable * target:
                 break
-            ratio = max(0.76, (usable * (target - 0.03)) / max(estimated, 1.0))
+            ratio = max(0.82, (usable * (target - 0.03)) / max(estimated, 1.0))
             font_scale = max(min_font, font_scale * ratio)
-            space_scale = max(0.10 if multi else 0.18, space_scale * ratio)
-            image_frac = max(0.14, image_frac * ratio)
+            space_scale = max(0.22 if multi else 0.28, space_scale * ratio)
+            image_frac = max(0.18, image_frac * ratio)
 
         estimated = self._estimate_body_height_pt(
             page, margins, font_scale, space_scale, image_frac, multi_column=multi
         )
-        # Only open spacing on clearly under-filled simple pages (helps page-2 MAD).
-        if not multi and estimated > 0 and estimated < usable * 0.82:
-            space_scale = min(0.70, max(space_scale, 0.48))
+        # Mild open on under-filled simple pages (reduces huge bottom white).
+        if not multi and estimated > 0 and estimated < usable * 0.78:
+            space_scale = min(0.68, max(space_scale, 0.48))
             font_scale = min(1.0, max(font_scale, 0.94))
         return _PackProfile(
             font_scale=font_scale,
@@ -540,8 +538,13 @@ class EditableDocxRenderer:
         # Prefer IR footer wording for structure/visual consistency; keep PAGE for numbers.
         if static_footers:
             footer.add_run(static_footers[0] + "  ")
-        # Always emit a PAGE field so multi-page continuous docs keep numbering.
+        # Always emit a PAGE field so multi-page continuous docs keep numbering,
+        # including page 1 (cached result visible before field update).
         run = footer.add_run()
+        try:
+            run.font.size = self._pt(10)
+        except Exception:
+            pass
         fld_char_begin = OxmlElement("w:fldChar")
         fld_char_begin.set(qn("w:fldCharType"), "begin")
         instr = OxmlElement("w:instrText")
@@ -549,11 +552,8 @@ class EditableDocxRenderer:
         instr.text = " PAGE "
         fld_char_separate = OxmlElement("w:fldChar")
         fld_char_separate.set(qn("w:fldCharType"), "separate")
-        # Cached result so extractors/readers see concrete text even before field update.
         result = OxmlElement("w:t")
-        result.text = "1" if not footer_texts else (
-            footer_texts[0] if page_number_like.fullmatch(footer_texts[0] or "") else "1"
-        )
+        result.text = "1"
         fld_char_end = OxmlElement("w:fldChar")
         fld_char_end.set(qn("w:fldCharType"), "end")
         run._r.append(fld_char_begin)
@@ -561,13 +561,10 @@ class EditableDocxRenderer:
         run._r.append(fld_char_separate)
         run._r.append(result)
         run._r.append(fld_char_end)
-        # If IR only has page-number footers, still put visible text for structure checks.
-        if not static_footers and not footer_texts:
-            footer.add_run("")
-        elif not static_footers and footer_texts:
-            # Ensure at least one plain-text run exists alongside the field result.
-            if not any((run.text or "").strip() for run in footer.runs):
-                footer.add_run(footer_texts[0])
+        try:
+            section.different_first_page_header_footer = False
+        except Exception:
+            pass
         for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
             paragraph.paragraph_format.space_before = self._pt(0)
             paragraph.paragraph_format.space_after = self._pt(0)
@@ -702,16 +699,19 @@ class EditableDocxRenderer:
             space_before = 6.0 * max(0.35, pack.space_scale)
         else:
             space_before = max(0.0, top_pt - prev_bottom_pt)
-            if space_before < 2.0:
+            if space_before < 1.2:
                 space_before = 0.0
             else:
-                space_before *= max(0.45, pack.space_scale)
+                # Keep more of the source leading so academic pages stay open.
+                space_before *= max(0.70, pack.space_scale)
 
         if element.type == "formula":
-            space_before = min(space_before, 10.0)
+            space_before = min(space_before, 14.0)
         elif element.type == "heading":
-            space_before = min(space_before, 16.0)
-        space_before = min(space_before, 36.0)
+            space_before = min(max(space_before, 6.0), 22.0)
+        elif element.type == "image":
+            space_before = min(max(space_before, 8.0), 28.0)
+        space_before = min(space_before, 42.0)
 
         if multi_column:
             # Collapse multi-column gutters into full-measure single-column text.
@@ -727,24 +727,25 @@ class EditableDocxRenderer:
         left_indent = min(left_indent, page.width_pt * 0.12)
         right_indent = min(right_indent, page.width_pt * 0.08)
 
-        # Use exact leading in points when possible (stored negative as convention
-        # consumed by _apply_paragraph_style). Positive multiples remain allowed.
+        # Prefer slightly open AT_LEAST leading (negative pt convention) so text
+        # does not look stacked/crowded relative to the academic PDF.
         font_size = (element.style.font_size_pt or 10.0) * pack.font_scale
         height_pt = max(0.0, bottom_pt - top_pt)
         if element.style.line_spacing is not None and element.style.line_spacing >= 1.0:
-            # Convert source multiple into exact pt for tighter Word metrics.
-            line_spacing = -(font_size * min(1.12, max(1.0, element.style.line_spacing)) * 0.95)
+            line_spacing = -(font_size * min(1.28, max(1.08, element.style.line_spacing)))
         elif height_pt > 0 and font_size:
-            estimated_lines = max(1.0, height_pt / max(font_size * 1.15, 1.0))
+            estimated_lines = max(1.0, height_pt / max(font_size * 1.18, 1.0))
             if estimated_lines <= 1.4:
-                line_spacing = -(font_size * 1.0)
+                line_spacing = -(font_size * 1.12)
             else:
                 per_line = height_pt / estimated_lines
-                line_spacing = -max(font_size * 0.96, min(font_size * 1.12, per_line))
+                line_spacing = -max(font_size * 1.08, min(font_size * 1.28, per_line * 1.02))
         else:
-            line_spacing = -(font_size * 1.0)
+            line_spacing = -(font_size * 1.12)
         if element.type == "formula":
-            line_spacing = -(font_size * 1.02)
+            line_spacing = -(font_size * 1.10)
+        if element.type == "heading":
+            line_spacing = -(font_size * 1.16)
 
         return _FlowGeometry(
             space_before_pt=space_before,
@@ -982,12 +983,15 @@ class EditableDocxRenderer:
         table = doc.add_table(rows=element.table.row_count, cols=element.table.column_count)
         table.alignment = table_alignment.LEFT
         table.autofit = False
-        # A Word table must remain readable even when the PDF only drew
-        # horizontal rules. Explicit cell borders below provide the stable
-        # editable grid for every native-table mode.
-        table.style = "Table Grid"
+        # Avoid "Table Grid" + invented cell borders (double lines / junk boxes on
+        # Attention tables 2–3). Start borderless; apply only evidenced edges.
+        try:
+            table.style = "Table Normal"
+        except KeyError:
+            pass
         column_widths = self._table_column_widths(page, element)
         self._set_table_geometry(table, column_widths, element, page, geometry, oxml_element, qn)
+        self._set_table_default_borders(table, element, oxml_element, qn)
         repeat_header_rows = min(element.table.row_count, element.table.repeat_header_row_count)
         for row_index, row in enumerate(table.rows):
             row_properties = row._tr.get_or_add_trPr()
@@ -997,19 +1001,15 @@ class EditableDocxRenderer:
                 header = oxml_element("w:tblHeader")
                 header.set(qn("w:val"), "true")
                 row_properties.append(header)
-        # Compress tall STEM tables so page 9-style grids stay on one canvas.
         raw_heights = list(element.table.row_heights_pt)
         if raw_heights:
             total_h = sum(raw_heights)
-            max_table_h = max(120.0, page.height_pt * 0.34)
-            height_scale = min(1.0, max_table_h / max(total_h, 1.0)) * max(0.72, pack.font_scale)
+            max_table_h = max(160.0, page.height_pt * 0.48)
+            height_scale = min(1.0, max_table_h / max(total_h, 1.0)) * max(0.88, pack.font_scale)
         else:
-            height_scale = max(0.72, pack.font_scale)
-        cell_font_scale = max(0.70, pack.font_scale * 0.88)
-        # Table IR cells do not have a single source run style. Without an
-        # explicit size python-docx falls back to Word Normal (usually 11pt),
-        # which makes narrow scientific columns wrap and push later content.
-        cell_font_size = max(7.5, 10.0 * min(1.0, max(0.82, pack.font_scale)))
+            height_scale = max(0.88, pack.font_scale)
+        cell_font_scale = max(0.88, pack.font_scale * 0.96)
+        cell_font_size = max(8.5, 10.0 * min(1.0, max(0.90, pack.font_scale)))
         occupied: set[tuple[int, int]] = set()
         for row_index, row_payload in enumerate(element.table.rows):
             for column_index in range(element.table.column_count):
@@ -1048,7 +1048,7 @@ class EditableDocxRenderer:
                 self._apply_run_style(run, element, None, point_factory, qn, cell_font_scale)
                 run.font.size = point_factory(cell_font_size)
                 self._set_cell_borders(cell, payload, oxml_element, qn)
-                self._set_cell_margins(cell, oxml_element, qn, compact=True)
+                self._set_cell_margins(cell, oxml_element, qn, compact=False)
             if row_index < len(raw_heights):
                 row = table.rows[row_index]
                 row.height = point_factory(max(8.0, raw_heights[row_index] * height_scale))
@@ -1105,33 +1105,67 @@ class EditableDocxRenderer:
                 tc_w.set(qn("w:type"), "dxa")
                 tc_w.set(qn("w:w"), str(int(round(column_widths[index] * 20))))
 
+    def _set_table_default_borders(self, table, element: DocumentElement, oxml_element, qn) -> None:
+        """Apply a single clean grid from table-level borders (no junk boxes)."""
+        if element.table is None:
+            return
+        # Count evidenced edges; if sparse, still draw a light full grid for STEM tables.
+        evidenced = 0
+        total = 0
+        for row in element.table.rows:
+            for cell in row:
+                if cell is None:
+                    continue
+                for edge in (cell.top_border, cell.right_border, cell.bottom_border, cell.left_border):
+                    total += 1
+                    if edge is not None:
+                        evidenced += 1
+        density = evidenced / max(total, 1)
+        # Always prefer one tblBorders definition over per-cell invented singles.
+        tbl_pr = table._tbl.tblPr
+        borders = tbl_pr.first_child_found_in("w:tblBorders")
+        if borders is None:
+            borders = oxml_element("w:tblBorders")
+            tbl_pr.append(borders)
+        # Attention-style tables: light gray grid matching paper rules.
+        sz = "8" if density >= 0.35 else "6"
+        color = "404040" if density >= 0.35 else "606060"
+        for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            edge_element = borders.find(qn(f"w:{edge}"))
+            if edge_element is None:
+                edge_element = oxml_element(f"w:{edge}")
+                borders.append(edge_element)
+            edge_element.set(qn("w:val"), "single")
+            edge_element.set(qn("w:sz"), sz)
+            edge_element.set(qn("w:space"), "0")
+            edge_element.set(qn("w:color"), color)
+
     def _set_cell_borders(self, cell, payload, oxml_element, qn) -> None:
+        """Only override edges that have explicit IR evidence; never invent singles."""
         border_values = {
             "top": payload.top_border,
             "right": payload.right_border,
             "bottom": payload.bottom_border,
             "left": payload.left_border,
         }
+        if all(border is None for border in border_values.values()):
+            return
         tc_pr = cell._tc.get_or_add_tcPr()
         borders = tc_pr.first_child_found_in("w:tcBorders")
         if borders is None:
             borders = oxml_element("w:tcBorders")
             tc_pr.append(borders)
         for edge, border in border_values.items():
+            if border is None:
+                continue
             edge_element = borders.find(qn(f"w:{edge}"))
             if edge_element is None:
                 edge_element = oxml_element(f"w:{edge}")
                 borders.append(edge_element)
-            if border is None:
-                edge_element.set(qn("w:val"), "single")
-                edge_element.set(qn("w:sz"), "4")
-                edge_element.set(qn("w:space"), "0")
-                edge_element.set(qn("w:color"), "808080")
-                continue
-            edge_element.set(qn("w:val"), border.val)
-            edge_element.set(qn("w:sz"), str(max(2, int(round(border.width_pt * 8)))))
+            edge_element.set(qn("w:val"), border.val if border.val != "nil" else "single")
+            edge_element.set(qn("w:sz"), str(max(4, int(round(border.width_pt * 8)))))
             edge_element.set(qn("w:space"), "0")
-            edge_element.set(qn("w:color"), border.color or "808080")
+            edge_element.set(qn("w:color"), border.color or "404040")
 
     def _set_cell_margins(self, cell, oxml_element, qn, *, compact: bool = False) -> None:
         tc_pr = cell._tc.get_or_add_tcPr()
@@ -1173,12 +1207,16 @@ class EditableDocxRenderer:
             width_pt = max(24.0, page.width_pt * (element.bbox.right - element.bbox.left))
             height_pt = max(24.0, page.height_pt * (element.bbox.bottom - element.bbox.top))
         else:
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+
             content_width = page.width_pt - margins.left - margins.right
             max_height = max(
-                48.0,
+                72.0,
                 (page.height_pt - margins.top - margins.bottom - 36.0) * pack.image_max_height_frac,
             )
-            width_pt = min(element.image.width_pt, max(36.0, content_width - geometry.left_indent_pt))
+            # Keep figures on a common centered measure (fixes page-4 stacked diagrams).
+            target_width = min(element.image.width_pt, max(120.0, content_width * 0.88))
+            width_pt = target_width
             height_pt = element.image.height_pt
             if element.image.width_pt > 0 and width_pt < element.image.width_pt:
                 height_pt = element.image.height_pt * (width_pt / element.image.width_pt)
@@ -1196,10 +1234,15 @@ class EditableDocxRenderer:
             paragraph.paragraph_format.space_before = point_factory(0)
             paragraph.paragraph_format.space_after = point_factory(0)
         else:
-            paragraph.paragraph_format.space_before = point_factory(min(geometry.space_before_pt, 4.0))
-            paragraph.paragraph_format.space_after = point_factory(0)
-            if geometry.left_indent_pt:
-                paragraph.paragraph_format.left_indent = point_factory(geometry.left_indent_pt)
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            paragraph.paragraph_format.space_before = point_factory(
+                max(6.0, min(geometry.space_before_pt, 18.0))
+            )
+            paragraph.paragraph_format.space_after = point_factory(8.0)
+            paragraph.paragraph_format.left_indent = point_factory(0)
+            paragraph.paragraph_format.right_indent = point_factory(0)
         run = paragraph.add_run()
         run.add_picture(str(image_path), width=point_factory(width_pt), height=point_factory(height_pt))
 
@@ -1249,10 +1292,11 @@ class EditableDocxRenderer:
         space_after = element.style.space_after_pt if element.style.space_after_pt is not None else 0.0
         paragraph_format.space_before = point_factory(max(0.0, space_before))
         paragraph_format.space_after = point_factory(max(0.0, space_after))
-        # Negative line_spacing means exact leading in points (see _flow_geometry).
+        # Negative line_spacing means leading in points (see _flow_geometry).
+        # AT_LEAST avoids clipping and reduces stacked/cramped look vs EXACTLY.
         if geometry.line_spacing is not None and geometry.line_spacing < 0:
             paragraph_format.line_spacing = point_factory(abs(geometry.line_spacing))
-            paragraph_format.line_spacing_rule = line_spacing_enum.EXACTLY
+            paragraph_format.line_spacing_rule = line_spacing_enum.AT_LEAST
         elif geometry.line_spacing is not None:
             paragraph_format.line_spacing = geometry.line_spacing
             paragraph_format.line_spacing_rule = line_spacing_enum.MULTIPLE
@@ -1261,8 +1305,8 @@ class EditableDocxRenderer:
             paragraph_format.line_spacing_rule = line_spacing_enum.MULTIPLE
         else:
             font_size = element.style.font_size_pt or 10.0
-            paragraph_format.line_spacing = point_factory(font_size * 1.05)
-            paragraph_format.line_spacing_rule = line_spacing_enum.EXACTLY
+            paragraph_format.line_spacing = point_factory(font_size * 1.2)
+            paragraph_format.line_spacing_rule = line_spacing_enum.AT_LEAST
         if element.style.first_line_indent_pt is not None:
             paragraph_format.first_line_indent = point_factory(element.style.first_line_indent_pt)
         left_indent = (
@@ -1299,7 +1343,7 @@ class EditableDocxRenderer:
         font_size = (run_payload.font_size_pt if run_payload else None) or element.style.font_size_pt
         # Mild optical scale: prefer near-source size when pack allows it.
         if font_size:
-            font_size = font_size * max(0.84, min(1.0, font_scale))
+            font_size = font_size * max(0.92, min(1.0, font_scale))
         if font_family:
             run.font.name = font_family
             rpr = run._element.get_or_add_rPr()
@@ -1332,6 +1376,16 @@ class EditableDocxRenderer:
         if run_payload:
             run.font.superscript = run_payload.superscript
             run.font.subscript = run_payload.subscript
+        # Slight positive character spacing eases "字距太密" without exploding measure.
+        if not (run_payload and (run_payload.superscript or run_payload.subscript)):
+            from docx.oxml import OxmlElement
+
+            r_pr = run._element.get_or_add_rPr()
+            spacing = r_pr.find(qn("w:spacing"))
+            if spacing is None:
+                spacing = OxmlElement("w:spacing")
+                r_pr.append(spacing)
+            spacing.set(qn("w:val"), "8")  # 8 twips ≈ 0.4pt — ease crowding without wrap blow-up
 
     def _pt(self, value: float):
         from docx.shared import Pt
