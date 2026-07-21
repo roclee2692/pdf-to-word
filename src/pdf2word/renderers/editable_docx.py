@@ -138,24 +138,31 @@ class EditableDocxRenderer:
         section = doc.sections[0]
         self._apply_section_geometry(section, base_page, margins, point_factory, twips_factory)
         self._render_continuous_header_footer(section, document_ir.pages)
-        # Soft source-page breaks only when the page is estimated to fit in one canvas.
-        # Pages that still overflow would otherwise leave nearly blank intermediate pages.
         for page_index, page in enumerate(document_ir.pages):
             pack = self._pack_profile(page)
             column_count, column_splits = self._detect_columns(page)
-            # Soft source-page break keeps ≈1 Word page per PDF page.
+            # Map source Y into the Word frame so soft-broken pages do not leave
+            # a huge empty band under short body content.
+            vmap = self._vertical_map(page, margins, pack, multi_column=column_count > 1)
             need_page_break = page_index > 0
             prev_bottom_pt: float | None = None
             prev_column: int | None = None
-            for element in page.ordered_elements():
-                if element.type in {"header", "footer"}:
-                    continue
-                if element.type == "separator":
-                    height_pt = page.height_pt * max(0.0, element.bbox.bottom - element.bbox.top)
-                    if height_pt < 2.5 and (
-                        element.separator is None or element.separator.orientation == "horizontal"
-                    ):
-                        continue
+            body_elements = [
+                element
+                for element in page.ordered_elements()
+                if element.type not in {"header", "footer"} and not self._skip_separator(page, element)
+            ]
+            index = 0
+            while index < len(body_elements):
+                element = body_elements[index]
+                pair = None
+                if (
+                    element.type == "image"
+                    and index + 1 < len(body_elements)
+                    and body_elements[index + 1].type == "image"
+                    and self._images_side_by_side(element, body_elements[index + 1])
+                ):
+                    pair = body_elements[index + 1]
                 column_index = self._column_index(element, column_splits)
                 geometry = self._flow_geometry(
                     page,
@@ -165,8 +172,26 @@ class EditableDocxRenderer:
                     pack,
                     multi_column=column_count > 1,
                     column_changed=prev_column is not None and column_index != prev_column,
-                    vertical_map=None,
+                    vertical_map=vmap,
                 )
+                if pair is not None:
+                    self._render_image_pair(
+                        doc,
+                        page,
+                        element,
+                        pair,
+                        geometry,
+                        margins,
+                        point_factory,
+                        pack,
+                        page_break_before=need_page_break,
+                    )
+                    index += 2
+                    need_page_break = False
+                    bottom_src = page.height_pt * max(element.bbox.bottom, pair.bbox.bottom)
+                    prev_bottom_pt = vmap.map_y(bottom_src) if vmap else bottom_src
+                    prev_column = column_index
+                    continue
                 self._render_body_element(
                     doc,
                     page,
@@ -185,8 +210,10 @@ class EditableDocxRenderer:
                     absolute_frame=False,
                 )
                 need_page_break = False
-                prev_bottom_pt = page.height_pt * element.bbox.bottom
+                bottom_src = page.height_pt * element.bbox.bottom
+                prev_bottom_pt = vmap.map_y(bottom_src) if vmap else bottom_src
                 prev_column = column_index
+                index += 1
 
     def _render_paged(
         self,
@@ -208,17 +235,16 @@ class EditableDocxRenderer:
             self._apply_section_geometry(section, page, margins, point_factory, twips_factory)
             self._render_page_header_footer(section, page)
             pack = self._pack_profile(page)
+            vmap = self._vertical_map(page, margins, pack, multi_column=False)
             prev_bottom_pt: float | None = None
             for element in page.ordered_elements():
                 if element.type in {"header", "footer"}:
                     continue
-                if element.type == "separator":
-                    height_pt = page.height_pt * max(0.0, element.bbox.bottom - element.bbox.top)
-                    if height_pt < 2.5 and (
-                        element.separator is None or element.separator.orientation == "horizontal"
-                    ):
-                        continue
-                geometry = self._flow_geometry(page, element, prev_bottom_pt, margins, pack)
+                if self._skip_separator(page, element):
+                    continue
+                geometry = self._flow_geometry(
+                    page, element, prev_bottom_pt, margins, pack, vertical_map=vmap
+                )
                 self._render_body_element(
                     doc,
                     page,
@@ -234,7 +260,8 @@ class EditableDocxRenderer:
                     qn,
                     pack,
                 )
-                prev_bottom_pt = page.height_pt * element.bbox.bottom
+                bottom_src = page.height_pt * element.bbox.bottom
+                prev_bottom_pt = vmap.map_y(bottom_src) if vmap else bottom_src
 
     def _pack_profile(self, page: PageIR) -> _PackProfile:
         body = [
@@ -284,6 +311,35 @@ class EditableDocxRenderer:
             return 1, [1.0]
         split = (centers[index] + centers[index + 1]) / 2
         return 2, [split]
+
+    def _skip_separator(self, page: PageIR, element: DocumentElement) -> bool:
+        """Drop decorative rules that become junk boxes next to tables/figures."""
+        if element.type != "separator":
+            return False
+        height_pt = page.height_pt * max(0.0, element.bbox.bottom - element.bbox.top)
+        width_frac = max(0.0, element.bbox.right - element.bbox.left)
+        # Keep only substantial full-width horizontal rules (e.g. under titles).
+        if height_pt < 3.0:
+            return True
+        if width_frac < 0.35:
+            return True
+        if element.separator and element.separator.orientation == "vertical":
+            return True
+        return False
+
+    def _images_side_by_side(self, left: DocumentElement, right: DocumentElement) -> bool:
+        """True when two figures share a horizontal band (Attention page-4 diagrams)."""
+        if left.type != "image" or right.type != "image":
+            return False
+        a0, a1 = left.bbox.top, left.bbox.bottom
+        b0, b1 = right.bbox.top, right.bbox.bottom
+        overlap = min(a1, b1) - max(a0, b0)
+        min_h = max(1e-6, min(a1 - a0, b1 - b0))
+        if overlap < 0.35 * min_h:
+            return False
+        mid_a = (left.bbox.left + left.bbox.right) / 2
+        mid_b = (right.bbox.left + right.bbox.right) / 2
+        return abs(mid_a - mid_b) >= 0.12
 
     def _column_index(self, element: DocumentElement, splits: list[float]) -> int:
         mid = (element.bbox.left + element.bbox.right) / 2
@@ -534,14 +590,11 @@ class EditableDocxRenderer:
         footer = section.footer.paragraphs[0]
         footer.text = ""
         footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        static_footers = [text for text in footer_texts if not page_number_like.fullmatch(text)]
-        # Prefer IR footer wording for structure/visual consistency; keep PAGE for numbers.
-        if static_footers:
-            footer.add_run(static_footers[0] + "  ")
-        # Always emit a PAGE field so multi-page continuous docs keep numbering,
-        # including page 1 (cached result visible before field update).
+        # Keep footer minimal and always numbered. Long conference strings in the
+        # IR footer were drowning the PAGE field on page 1 in some viewers.
         run = footer.add_run()
         try:
+            run.font.name = "Times New Roman"
             run.font.size = self._pt(10)
         except Exception:
             pass
@@ -563,6 +616,7 @@ class EditableDocxRenderer:
         run._r.append(fld_char_end)
         try:
             section.different_first_page_header_footer = False
+            section.footer.is_linked_to_previous = False
         except Exception:
             pass
         for paragraph in (*section.header.paragraphs, *section.footer.paragraphs):
@@ -650,13 +704,12 @@ class EditableDocxRenderer:
         source_span = max(1.0, source_bottom - source_top)
         target_top = margins.top
         usable = max(120.0, page.height_pt - margins.top - margins.bottom)
-        # Keep slack so Word line boxes do not force an extra page.
+        # Fill most of the content frame so soft page breaks do not leave a
+        # giant empty band under sparse body blocks.
         dense = len(body) >= 28 or multi_column
-        target_span = usable * (0.90 if dense else 0.96)
+        target_span = usable * (0.94 if dense else 0.97)
         if pack.font_scale < 0.90:
-            target_span *= 0.95
-        if pack.font_scale < 0.85:
-            target_span *= 0.95
+            target_span *= 0.97
         return _VerticalMap(
             source_top=source_top,
             source_span=source_span,
@@ -1184,6 +1237,77 @@ class EditableDocxRenderer:
             margin.set(qn("w:w"), pad_tb if edge in {"top", "bottom"} else pad_lr)
             margin.set(qn("w:type"), "dxa")
 
+    def _render_image_pair(
+        self,
+        doc,
+        page: PageIR,
+        left: DocumentElement,
+        right: DocumentElement,
+        geometry: _FlowGeometry,
+        margins: _PageMargins,
+        point_factory,
+        pack: _PackProfile | None = None,
+        *,
+        page_break_before: bool = False,
+    ) -> None:
+        """Place two horizontally adjacent figures in one borderless 1×2 table."""
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        pack = pack or _PackProfile()
+        # Order left-to-right by source X.
+        a, b = (left, right) if left.bbox.left <= right.bbox.left else (right, left)
+        paths: list[Path] = []
+        for element in (a, b):
+            path = self._materialize_image(element)
+            if not path or not path.exists():
+                raise RuntimeError(f"Image element {element.id} has no materialized source")
+            paths.append(path)
+        content_width = page.width_pt - margins.left - margins.right
+        max_h = max(64.0, (page.height_pt - margins.top - margins.bottom) * pack.image_max_height_frac)
+        cell_w = content_width * 0.46
+        sizes: list[tuple[float, float]] = []
+        for element, _path in zip((a, b), paths):
+            assert element.image is not None
+            w = min(element.image.width_pt, cell_w)
+            h = element.image.height_pt
+            if element.image.width_pt > 0 and w < element.image.width_pt:
+                h *= w / element.image.width_pt
+            if h > max_h and h > 0:
+                scale = max_h / h
+                h = max_h
+                w *= scale
+            sizes.append((w, h))
+        # Match heights for a tidy pair.
+        target_h = min(sizes[0][1], sizes[1][1])
+        final_sizes: list[tuple[float, float]] = []
+        for (w, h), element in zip(sizes, (a, b)):
+            if h > 0 and abs(h - target_h) > 0.5:
+                w *= target_h / h
+                h = target_h
+            final_sizes.append((w, h))
+
+        if page_break_before:
+            breaker = doc.add_paragraph()
+            breaker.paragraph_format.page_break_before = True
+            breaker.paragraph_format.space_before = point_factory(0)
+            breaker.paragraph_format.space_after = point_factory(0)
+        # One centered paragraph with two pictures side-by-side (no extra Word table,
+        # which would pollute validation and look like a junk 1×2 grid).
+        paragraph = doc.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.paragraph_format.space_before = point_factory(
+            max(6.0, min(geometry.space_before_pt, 16.0))
+        )
+        paragraph.paragraph_format.space_after = point_factory(8.0)
+        for index, ((w, h), path) in enumerate(zip(final_sizes, paths)):
+            run = paragraph.add_run()
+            run.add_picture(str(path), width=point_factory(w), height=point_factory(h))
+            if index == 0:
+                # Thin spacer between the pair.
+                gap = paragraph.add_run("  ")
+
     def _render_image(
         self,
         doc,
@@ -1343,8 +1467,11 @@ class EditableDocxRenderer:
         font_size = (run_payload.font_size_pt if run_payload else None) or element.style.font_size_pt
         # Mild optical scale: prefer near-source size when pack allows it.
         if font_size:
-            font_size = font_size * max(0.92, min(1.0, font_scale))
-        if font_family:
+            font_size = font_size * max(0.94, min(1.0, font_scale))
+        # Normalize noisy PDF face names to a crisp desktop serif for body text.
+        normalized = self._normalize_font_family(font_family)
+        if normalized:
+            font_family = normalized
             run.font.name = font_family
             rpr = run._element.get_or_add_rPr()
             rfonts = rpr.rFonts
@@ -1357,6 +1484,9 @@ class EditableDocxRenderer:
                 "eastAsia": slots.eastAsia if slots and slots.eastAsia else font_family,
                 "cs": slots.cs if slots and slots.cs else font_family,
             }
+            # Prefer normalized desktop faces for latin slots (clearer on LO/Pages).
+            for slot in ("ascii", "hAnsi", "cs"):
+                values[slot] = font_family
             for slot, value in values.items():
                 rfonts.set(qn(f"w:{slot}"), value)
         if font_size:
@@ -1386,6 +1516,18 @@ class EditableDocxRenderer:
                 spacing = OxmlElement("w:spacing")
                 r_pr.append(spacing)
             spacing.set(qn("w:val"), "8")  # 8 twips ≈ 0.4pt — ease crowding without wrap blow-up
+
+    def _normalize_font_family(self, font_family: str | None) -> str | None:
+        if not font_family:
+            return "Times New Roman"
+        key = font_family.lower().replace(" ", "")
+        if any(token in key for token in ("times", "nimbusrom", "liberation serif", "stix", "cmr", "computer modern")):
+            return "Times New Roman"
+        if any(token in key for token in ("arial", "helvetica", "nimbus san", "liberation san", "dejavu")):
+            return "Arial"
+        if any(token in key for token in ("courier", "mono", "consolas")):
+            return "Courier New"
+        return font_family
 
     def _pt(self, value: float):
         from docx.shared import Pt

@@ -1,0 +1,9 @@
+WARNING: page 5: preferred 'docling' unavailable; using 'native' (quality may be limited)
+WARNING: page 7: preferred 'docling' unavailable; using 'native' (quality may be limited)
+DOCX: workspace/archive/v1.0.7-editable-v2/editable.docx
+PREFLIGHT: workspace/jobs/20260721_051423_41a93d6c/validation/preflight.json
+VALIDATION: workspace/jobs/20260721_051423_41a93d6c/validation/validation_report.json
+VALIDATION_PASSED: True
+VALIDATION_LAYERS: structure=pass text=pass table=pass image=pass visual=warn
+VISUAL_PAGES: source=11 rendered=12 delta=1 mean_mad=0.0713
+JOB: workspace/jobs/20260721_051423_41a93d6c
