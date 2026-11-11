@@ -93,7 +93,7 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 ## 验收亮点（Attention 论文 · 全 11 页）
 
 样本：`NIPS-2017-attention-is-all-you-need-Paper.pdf`  
-证据：`workspace/archive/v1.0.4-paper-90/`
+证据：`editable` 和 `positioned` 见 `workspace/archive/v1.0.4-paper-90/`；下表的 v1.0.5 `hybrid` 和 `fidelity` 见 `workspace/archive/v1.0.5-table-clean/`。
 
 | 指标 | 结果 |
 | --- | --- |
@@ -104,8 +104,7 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
 | `hybrid` / `fidelity` mean MAD | **0.0194 / 0.0194**（v1.0.5：去掉叠表/竖线后与固定版同级） |
 | 单测 | **47 OK**（1 skipped；GUI smoke 已通过） |
 
-最终产物与逐模式报告归档于 `workspace/archive/v1.0.4-paper-90/`：
-`docx/`、`validation/`、`validation_report.json`、`preflight/`、`ir/`。
+v1.0.4 产物与逐模式报告归档于 `workspace/archive/v1.0.4-paper-90/`；v1.0.5 的三个固定版模式产物及验证报告归档于 `workspace/archive/v1.0.5-table-clean/`。
 
 ### GUI 操作
 
